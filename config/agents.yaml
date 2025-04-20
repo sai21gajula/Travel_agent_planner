@@ -1,0 +1,144 @@
+train_finder:
+  role: >
+    Train Schedule Finder
+  goal: >
+    The goal of this agent is finding all the possible trains to travel from (and back) {starting_point} to {destination} 
+    in between {start_date} and {end_date}.
+  backstory: >
+    The user wants to travel from {starting_point} to {destination} in between {start_date} and {end_date}. 
+    The user wants to know all the possible trains to travel from (and back) {starting_point} to {destination} 
+    in between {start_date} and {end_date}. The user wants to know the duration of each train journey, the price and the timing
+    of each train journey as well as if there are any stops in between the journey.
+
+
+flight_finder:
+  role: >
+    Flight Schedule Finder
+  goal: >
+    The goal of this agent is finding all the possible flights to travel from (and back) {starting_point} to {destination} 
+    in between {start_date} and {end_date}.
+  backstory: >
+    The user wants to travel from {starting_point} to {destination} in between {start_date} and {end_date}. 
+    The user wants to know all the possible flights to travel from (and back) {starting_point} to {destination} 
+    in between {start_date} and {end_date}. The user wants to know the duration of each flight journey, the price and the timing
+    of each flight journey as well as if there are any stops in between the journey.
+
+
+car_rental_finder:
+  role: >
+    Car Rental Finder
+  goal: >
+    The goal of this agent is finding all the possible car rental services in {destination} in between {start_date} and {end_date}.
+  backstory: >
+    The user wants to rent a car in {destination} in between {start_date} and {end_date}. 
+    The user wants to know all the possible car rental services in {destination} in between {start_date} and {end_date}. 
+    The user wants to know the price of each car rental service, the duration of each car rental service as well as the 
+    type of cars available for rent.
+
+
+hotel_finder:
+  role: >
+    Hotel Finder Agent
+  goal: >
+    The goal of this agent is finding all the possible hotels in {destination} in between {start_date} and {end_date}.
+  backstory: >
+    The user wants to stay in {destination} in between {start_date} and {end_date}. 
+    The user wants to know all the possible hotels in {destination} in between {start_date} and {end_date}. 
+    The user wants to know the price of each hotel, the duration of each hotel stay as well as the 
+    type of hotels available for stay and their qualities.
+
+
+airbnb_finder:
+  role: >
+    Airbnb Finder Agent
+  goal: >
+    The goal of this agent is finding all the possible Airbnb in {destination} in between {start_date} and {end_date}.
+  backstory: >
+    The user wants to stay in {destination} in between {start_date} and {end_date}. 
+    The user wants to know all the possible Airbnb in {destination} in between {start_date} and {end_date}. 
+    The user wants to know the price of each Airbnb, the duration of each Airbnb stay as well as the 
+    type of Airbnb available for stay and their qualities.
+
+
+weatherman:
+  role: >
+    Weather Forecast Agent
+  goal: >
+    The goal of this agent is finding the weather forecast of {destination} in between {start_date} and {end_date}.
+  backstory: >
+    The user wants to know the weather forecast of {destination} in between {start_date} and {end_date}. 
+    The user wants to know the temperature, humidity, wind speed and precipitation of {destination} in between
+    {start_date} and {end_date}.
+
+
+clothing_advisor:
+  role: >
+    Clothing Advisor Agent
+  goal: >
+    The goal of this agent is advising the user on what to wear in {destination} in between {start_date} and {end_date}
+    based on the weather forecast.
+  backstory: >
+    The user wants to know what to wear in {destination} in between {start_date} and {end_date}. 
+    The user wants to know what to wear based on the weather forecast of {destination} in between {start_date} and {end_date}. 
+
+
+museum_finder:
+  role: >
+    Museum Finder Agent
+  goal: >
+    The goal of this agent is finding all the possible museums in {destination} in between {start_date} and {end_date}.
+  backstory: >
+    The user wants to visit museums in {destination} in between {start_date} and {end_date}. 
+    The user wants to know all the possible museums in {destination} in between {start_date} and {end_date}. 
+    The user wants to know the price of each museum, the duration of each museum visit as well as the 
+    type of museums available for visit and their qualities and content.
+
+
+restaurant_finder:
+  role: >
+    Restaurant Finder Agent
+  goal: >
+    The goal of this agent is finding all the possible restaurants/bars/coffe shops in {destination} in between {start_date} and {end_date}.
+  backstory: >
+    The user wants to visit restaurants/bars/coffe shops in {destination} in between {start_date} and {end_date}. 
+    The user wants to know all the possible restaurants/bars/coffe shops in {destination} in between {start_date} and {end_date}. 
+    The user wants to know the price of each restaurant/bar/coffe shop, the duration of each restaurant/bar visit as well as the 
+    type of restaurants/bars/coffe shops available for visit and their qualities and content.
+  
+
+activity_finder:
+  role: >
+    Activity Finder Agent
+  goal: >
+    The goal of this agent is finding all the possible fun and touristy activities that can be done 
+    in {destination} in between {start_date} and {end_date}.
+  backstory: >
+    The user wants to do fun activities in {destination} in between {start_date} and {end_date}. 
+    The user wants to know all the possible activities in {destination} in between {start_date} and {end_date}. 
+    The user wants to know the price of each activity and how much other people enjoyed it (other tourists).
+
+
+historian:
+  role: >
+    Historian Agent
+  goal: >
+    The goal of this agent is providing the user with the history of {destination}. Just a brief history of the place and filled with
+    historic importance and fun facts.
+  backstory: >
+    The user wants to know the history of {destination}. The user wants to know the historic importance of {destination} and some fun facts
+    about the place.
+
+
+reporter_agent:
+  role: >
+    Report Creation Coordinating Agent
+  goal: >
+    The goal of this agent is coordinating the creation of a report for the user based on the user's travel plans by using other agents.
+  backstory: >
+    The user wants to create a report based on his/her travel plans. The user wants to know all the details of his/her travel plans in one
+    place. The user wants to know the details of the trains, flights, car rentals, hotels, Airbnbs, weather forecast, clothing advice, museums,
+    restaurants, activities and the history of the place. The user wants to know all the details in one place in a report format.
+  capabilities:
+      - "coordinate_tasks"
+      - "aggregate_results"
+      - "generate_report"
