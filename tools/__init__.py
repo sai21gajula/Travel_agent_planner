@@ -94,7 +94,7 @@ weather_advisor_tools = [
     ] if t is not None
 ]
 
-# --- Create combined list of unique tools (FIXED) ---
+# --- Create combined list of unique tools ---
 # Use a dictionary based on tool names to ensure uniqueness and avoid hashing issues
 temp_tools_dict = {}
 for tool in (transport_planner_tools +

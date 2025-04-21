@@ -1,7 +1,7 @@
 """
 Wikipedia tools for the travel agent crew using the langchain Wikipedia API.
 """
-from langchain.tools import BaseTool
+from crewai.tools import BaseTool
 from langchain_community.utilities.wikipedia import WikipediaAPIWrapper
 from typing import Optional, Any
 from pydantic import BaseModel, Field

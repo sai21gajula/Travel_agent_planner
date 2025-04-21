@@ -2,7 +2,7 @@
 Weather tools for the travel agent crew using OpenWeatherMap API.
 """
 import os
-from langchain.tools import BaseTool
+from crewai.tools import BaseTool
 from langchain_community.utilities.openweathermap import OpenWeatherMapAPIWrapper
 from typing import Optional, Any
 from pydantic import BaseModel, Field

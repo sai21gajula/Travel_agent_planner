@@ -1,7 +1,7 @@
 # travel_agent/tools/geoapify_tools.py
 import os
 import requests
-from langchain.tools import BaseTool
+from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
 from typing import Optional, Type, List
 
@@ -85,4 +85,3 @@ class GeoapifyPOITool(BaseTool):
         except Exception as e:
             print(f"Unexpected error processing Geoapify POI search: {str(e)}") # Log error
             return f"Unexpected error processing Geoapify POI search: {str(e)}"
-

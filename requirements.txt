@@ -29,3 +29,5 @@ wikipedia
 yelpapi
 playwright
 pyowm
+amadeus
+transitland

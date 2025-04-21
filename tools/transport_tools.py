@@ -1,7 +1,7 @@
 # travel_agent/tools/transport_tools.py
 import os
 import requests
-from langchain.tools import BaseTool
+from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
 from typing import Optional, Type, List
 
@@ -127,4 +127,3 @@ class PublicTransportSearchTool(BaseTool):
         except Exception as e:
             print(f"Unexpected error processing Transitland route search: {str(e)}") # Log error
             return f"Unexpected error processing Transitland route search: {str(e)}"
-

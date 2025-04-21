@@ -3,7 +3,7 @@ Yelp API tools for the travel agent crew.
 """
 import os
 import json
-from langchain.tools import BaseTool
+from crewai.tools import BaseTool
 from yelpapi import YelpAPI
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field

@@ -1,6 +1,6 @@
 # travel_agent/tools/amadeus_tools.py
 import os
-from langchain.tools import BaseTool
+from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
 from typing import Optional, Type, List
 # Ensure you have installed the amadeus library: pip install amadeus
