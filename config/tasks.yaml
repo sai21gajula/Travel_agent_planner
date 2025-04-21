@@ -1,95 +1,65 @@
+# config/tasks.yaml (Updated for Yelp, Geoapify, Transitland, Wiki, Weather tools)
+
 find_transportation:
   description: >
-    The goal is finding all the possible transportation services in {destination} in between {start_date} and {end_date}.
-    And looking into the best options from each category (train, flight and car rental) in terms of price and duration.
-    The user wants to know the price of each transportation service, the duration of each transportation service as well as the 
-    type of transportation services available. The user cares a lot about the cheap price but wants to balance that with the
-    duration of the journey as well.
+    Research available public transportation routes (bus, train, subway, tram) near the
+    starting point {starting_point} and destination {destination} relevant for travel
+    between {start_date} and {end_date}. Use the public transport search tool.
+    Focus on identifying route names/numbers and operating agencies based on available data (e.g., Transitland).
+    Note: This task does NOT search for flights, car rentals, or provide real-time schedules/booking.
   expected_output: >
-    The output should a bullet point list of the best options from each category (train, flight and car rental) in terms 
-    of price and duration of the trip. For example: "United Airlines flight from New York to Paris for $500, 8 hours duration
-    at 8am - 4pm, Economy class, 1 stopover in London" or "Renting a Subaru for $100 a day from Car Rental Company X" etc...
-  agents: 
-    - train_finder
-    - flight_finder
-    - car_rental_finder
+    A summary of potential public transport routes found near the origin and destination.
+    Include route names/numbers (e.g., "Bus 5", "Red Line"), vehicle types (bus, train, etc.),
+    and the names of the operating agencies, if available in the data. Mention coverage limitations if no routes are found.
+  # Agent assigned in crew.py: transport_planner
 
-
-find_hotel:
+find_accommodation:
   description: >
-    The user wants to know all the possible hotel and AirBnB options in {destination} in between {start_date} and {end_date}. 
-    The user wants to know the price of each hotel and AirBnB, the duration of each hotel and AirBnB stay as well as the 
-    type of hotel and AirBnB available for stay and their qualities. Lastly, out of all the hotel and AirBnB options, 
-    the user wants to know the best options from each category (hotel and AirBnB) in terms of price, quality and amenities.    
+    Search for potential accommodation locations (hotels, hostels, guesthouses)
+    in {destination} suitable for the period {start_date} to {end_date}.
+    Use the Point of Interest search tool (Geoapify) with relevant categories (e.g., 'accommodation.hotel').
+    Focus on identifying names and locations.
+    Note: This task does NOT provide real-time pricing, availability, or booking links.
   expected_output: >
-    The output should a bullet point list of the best 2 options from each category (hotel and AirBnB) in terms of 
-    price, quality and amenities. For example: "Hilton Hotel in Paris for $200 a night, 5 star, 2 queen beds, free breakfast,
-    free wifi, free parking, 24 hour room service" or "AirBnB in Paris for $100 a night, 2 bedroom, 1 bathroom, free wifi,
-    free parking, 24 hour check-in" etc...
-  agents: 
-    - hotel_finder
-    - airbnb_finder
+    A list presenting 3-5 potential accommodation locations found via POI search.
+    For each, include the Name, Address, general location/neighbourhood, and main category type (e.g., Hotel, Hostel)
+    if available in the POI data. Explicitly state that prices and availability were not searched.
+  # Agent assigned in crew.py: accommodation_finder
 
-
-get_weather:
+get_local_recommendations:
   description: >
-    The user wants to know the weather forecast of {destination} in between {start_date} and {end_date} so that they can
-    prepare for the trip accordingly. The user wants to know the temperature, humidity and precipitation forecast for each day.
-    And they want to know should they bring/wear for their trip (clothing, umbrella etc). 
+    Research and identify top recommendations for tourists visiting {destination} between
+    {start_date} and {end_date}. Use Yelp tools for dining/drinking spots. Use the POI search tool (Geoapify)
+    for activities, attractions (category 'tourism.attraction'), and museums (category 'entertainment.museum').
+    Use Wikipedia tools for a brief historical overview and fun facts.
   expected_output: >
-    The output should be a list of the weather forecast for each day in between {start_date} and {end_date} and the 
-    list of items that the user should bring/wear for the trip for each day. For example: "Day 1: 70 degrees, 50% humidity,
-    0% precipitation, wear a t-shirt and shorts, bring an umbrella" etc...
-  agents: 
-    - weatherman
-    - clothing_advisor
+    Four distinct sections:
+    1. Brief History & Fun Facts: A concise summary (1-2 paragraphs) of {destination}'s history and interesting facts (from Wikipedia).
+    2. Top 3-5 Activities/Attractions: List from Geoapify POI search (category 'tourism.attraction', etc.) with Name, Address/Location.
+    3. Top 3 Museums: List from Geoapify POI search (category 'entertainment.museum') with Name, Address/Location.
+    4. Top 3-5 Dining/Drinking spots: List from Yelp search with Name, Cuisine/Type, Price Range [$,$$,$$$], Address/Location, Rating.
+  # Agent assigned in crew.py: local_guide
 
-
-get_activities:
+get_weather_and_packing_advice:
   description: >
-    The user wants to know the best activities and places to visit in {destination} in between {start_date} and {end_date}.
-    The user wants to know the top 5 activities, top 5 museums and top 5 restaurants/bars/coffe shops
-    in {destination} in between {start_date} and {end_date}.
+    Provide a summarized weather forecast for {destination} between {start_date} and {end_date}
+    (including daily temperature ranges, precipitation chance). Based on this forecast, recommend
+    appropriate clothing types and essential items (e.g., umbrella, sunscreen) to pack.
   expected_output: >
-    The output should be a bullet point list of the top 5 activities, top 5 museums and top 5 restaurants/bars/coffe shops
-    in {destination} in between {start_date} and {end_date}.
-  agents: 
-    - museum_finder
-    - restaurant_finder
-    - activity_finder
+    A concise weather summary section covering the trip duration (e.g., "Expect daily highs around X°C, lows around Y°C, with a medium chance of rain mid-week.").
+    Followed by a bulleted list of recommended packing items (e.g., "- Layers (T-shirts, sweaters) - Waterproof jacket - Comfortable walking shoes").
+  # Agent assigned in crew.py: packing_and_weather_advisor (No change needed)
 
-
-get_history:
+compile_travel_report:
   description: >
-    The user wants to know the history of {destination} so that they can learn more about the place they are visiting.
-    The user wants to know the history of {destination} in terms of the historical events, historical places and historical
-    figures of {destination} as well as fun facts.
+    Compile all gathered information from previous tasks (public transport options, potential accommodation locations,
+    weather/packing, local recommendations) into a single, comprehensive travel report document
+    for the trip to {destination} from {start_date} to {end_date}. Organize the information logically and ensure clarity,
+    noting any limitations (e.g., lack of real-time pricing for accommodation).
   expected_output: >
-    The output should be a paragraph of 4 sentences of the historical events, historical places and historical figures of 
-    {destination} as well as fun facts.
-  agents: historian
-  
-
-get_report:
-  description: >
-    The user wants to get a report of their trip to {destination} in between {start_date} and {end_date} that includes
-    the best transportation options, the best hotel and AirBnB options, the weather forecast, the best activities and places to visit
-    and the history of {destination}.
-  expected_output: >
-    This report will include the transportation options, hotel options, weather forecast, clothing advice, activities,
-    museums, restaurants/bars/coffe shops and should be 5 pages long with a fun introduction and conclusion page.
-    The report should be visually appealing and should be easy to understand. Find visually appealing images for each page.
-  agents:
-    - train_finder
-    - flight_finder 
-    - car_rental_finder
-    - hotel_finder
-    - airbnb_finder
-    - weatherman
-    - clothing_advisor
-    - museum_finder
-    - restaurant_finder
-    - activity_finder
-    - historian
-
-  
+    A well-structured markdown document containing all the synthesized information
+    from the previous research tasks. The structure should follow standard travel itinerary sections
+    (e.g., Transportation (Public Transit), Accommodation (Locations), Local Guide, Weather/Packing).
+    Acknowledge where information like real-time pricing or booking details were not available due to tool limitations.
+  agent_assigned: report_compiler # Assigned in crew.py
+  # Context provided in crew.py from outputs of other tasks.

@@ -1,8 +1,11 @@
 #!/usr/bin/env python
+"""
+Main entry point for the travel agent system.
+"""
 import sys
 import os
 import argparse
-from travel_agent.src.travel_agent.crew import TravelAgentCrew
+from crew import TravelAgentCrew
 
 def run_crew(starting_point: str, destination: str, start_date: str, end_date: str):
     """
@@ -25,18 +28,67 @@ def run_crew(starting_point: str, destination: str, start_date: str, end_date: s
     }
 
     # Run the crew
-    report_file = TravelAgentCrew().crew().kickoff(inputs=inputs)
-    
-    print(f"\nTravel plan generated successfully!")
-    print(f"Report saved to: {report_file}")
-    
-    # Optional: Display the report
-    if os.path.exists(report_file):
-        print("\nWould you like to see the report? (y/n): ", end="")
-        show_report = input().lower().strip()
-        if show_report == 'y':
-            with open(report_file, 'r') as f:
-                print("\n" + f.read())
+    try:
+        report_file = TravelAgentCrew().kickoff(inputs=inputs)
+        
+        print(f"\nTravel plan generated successfully!")
+        print(f"Report saved to: {report_file}")
+        
+        # Optional: Display the report
+        if os.path.exists(report_file):
+            print("\nWould you like to see the report? (y/n): ", end="")
+            show_report = input().lower().strip()
+            if show_report == 'y':
+                with open(report_file, 'r') as f:
+                    print("\n" + f.read())
+    except Exception as e:
+        print(f"Error running the travel agent crew: {e}")
+        sys.exit(1)
+
+def train(iterations, filename):
+    """
+    Train the crew for a given number of iterations.
+    """
+    inputs = {
+        "starting_point": "New York",
+        "destination": "Paris",
+        "start_date": "2025-05-15",
+        "end_date": "2025-05-22"
+    }
+    try:
+        TravelAgentCrew().crew().train(n_iterations=iterations, filename=filename, inputs=inputs)
+        print(f"Training completed and saved to {filename}")
+
+    except Exception as e:
+        raise Exception(f"An error occurred while training the crew: {e}")
+
+def replay(task_id):
+    """
+    Replay the crew execution from a specific task.
+    """
+    try:
+        result = TravelAgentCrew().crew().replay(task_id=task_id)
+        print(f"Replay completed. Result: {result}")
+
+    except Exception as e:
+        raise Exception(f"An error occurred while replaying the crew: {e}")
+
+def test(iterations, model):
+    """
+    Test the crew execution and returns the results.
+    """
+    inputs = {
+        "starting_point": "Los Angeles",
+        "destination": "Tokyo",
+        "start_date": "2025-06-10",
+        "end_date": "2025-06-20"
+    }
+    try:
+        results = TravelAgentCrew().crew().test(n_iterations=iterations, model_name=model, inputs=inputs)
+        print(f"Testing completed. Results: {results}")
+
+    except Exception as e:
+        raise Exception(f"An error occurred while testing the crew: {e}")
 
 def parse_arguments():
     """Parse command line arguments"""
@@ -66,51 +118,6 @@ def parse_arguments():
     test_parser.add_argument('model', help='Model to use for testing')
     
     return parser.parse_args()
-
-def train(iterations, filename):
-    """
-    Train the crew for a given number of iterations.
-    """
-    inputs = {
-        "destination": "Paris",
-        "starting_point": "New York",
-        "start_date": "2025-05-15",
-        "end_date": "2025-05-22"
-    }
-    try:
-        TravelAgentCrew().crew().train(n_iterations=iterations, filename=filename, inputs=inputs)
-        print(f"Training completed and saved to {filename}")
-
-    except Exception as e:
-        raise Exception(f"An error occurred while training the crew: {e}")
-
-def replay(task_id):
-    """
-    Replay the crew execution from a specific task.
-    """
-    try:
-        result = TravelAgentCrew().crew().replay(task_id=task_id)
-        print(f"Replay completed. Result: {result}")
-
-    except Exception as e:
-        raise Exception(f"An error occurred while replaying the crew: {e}")
-
-def test(iterations, model):
-    """
-    Test the crew execution and returns the results.
-    """
-    inputs = {
-        "destination": "Tokyo",
-        "starting_point": "Los Angeles",
-        "start_date": "2025-06-10",
-        "end_date": "2025-06-20"
-    }
-    try:
-        results = TravelAgentCrew().crew().test(n_iterations=iterations, model_name=model, inputs=inputs)
-        print(f"Testing completed. Results: {results}")
-
-    except Exception as e:
-        raise Exception(f"An error occurred while testing the crew: {e}")
 
 def interactive_mode():
     """Interactive mode for when no arguments are provided"""
