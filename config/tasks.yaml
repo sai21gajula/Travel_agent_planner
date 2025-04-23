@@ -1,65 +1,180 @@
-# config/tasks.yaml (Updated for Yelp, Geoapify, Transitland, Wiki, Weather tools)
+# config/tasks.yaml (Updated with enhanced specializations)
 
 find_transportation:
   description: >
-    Research available public transportation routes (bus, train, subway, tram) near the
-    starting point {starting_point} and destination {destination} relevant for travel
-    between {start_date} and {end_date}. Use the public transport search tool.
-    Focus on identifying route names/numbers and operating agencies based on available data (e.g., Transitland).
-    Note: This task does NOT search for flights, car rentals, or provide real-time schedules/booking.
+    Research comprehensive transportation options between {starting_point} and {destination}
+    for the period {start_date} to {end_date}. If these are different cities/countries,
+    use the Amadeus flight search tool to find flight options (first use city_code_lookup
+    to find IATA codes). For local transportation within the destination, use the public
+    transport search tool to identify transit routes, operators, and key information.
+    Additionally, research any notable train or bus options for longer distances. For each
+    transportation type, provide details on routes, estimated costs, travel times, frequency,
+    and any special considerations.
   expected_output: >
-    A summary of potential public transport routes found near the origin and destination.
-    Include route names/numbers (e.g., "Bus 5", "Red Line"), vehicle types (bus, train, etc.),
-    and the names of the operating agencies, if available in the data. Mention coverage limitations if no routes are found.
-  # Agent assigned in crew.py: transport_planner
+    A comprehensive transportation section including:
+    1) Flight Options (if applicable): List 3-5 flight options with airlines, estimated prices,
+       flight duration, number of stops, and general schedules. Include any notes about airport
+       transportation.
+    2) Local Public Transit: Available types (metro, bus, tram, etc.), key routes for tourists,
+       transit pass options, and approximate costs. Include operating hours and frequency information
+       if available.
+    3) Regional Transportation: Notable train or bus routes to/from nearby destinations, with
+       service providers and general schedule information.
+    Conclude with practical transportation tips specific to the destination.
 
 find_accommodation:
   description: >
-    Search for potential accommodation locations (hotels, hostels, guesthouses)
-    in {destination} suitable for the period {start_date} to {end_date}.
-    Use the Point of Interest search tool (Geoapify) with relevant categories (e.g., 'accommodation.hotel').
-    Focus on identifying names and locations.
-    Note: This task does NOT provide real-time pricing, availability, or booking links.
+    Search for diverse accommodation options in {destination} suitable for the period {start_date}
+    to {end_date}. Use both the Amadeus hotel search API for traditional accommodations and the
+    Geoapify POI search tool for local stays and unique options (using categories like 'accommodation.hotel',
+    'accommodation.guest_house', etc.). For each area/neighborhood, identify a mix of accommodation
+    types at different price points. Include specific details on location, approximate pricing (when
+    available), amenities, and the character of surrounding neighborhoods. Consider the traveler's
+    preferences ({budget}, {travel_style}, and {accommodation}) when making recommendations.
   expected_output: >
-    A list presenting 3-5 potential accommodation locations found via POI search.
-    For each, include the Name, Address, general location/neighbourhood, and main category type (e.g., Hotel, Hostel)
-    if available in the POI data. Explicitly state that prices and availability were not searched.
-  # Agent assigned in crew.py: accommodation_finder
+    A well-structured accommodation section with:
+    1) Overview of 2-3 recommended neighborhoods/areas to stay in {destination}, with brief
+       descriptions of each area's character, benefits, and drawbacks.
+    2) For each area, 2-4 specific accommodation recommendations spanning different types and price points:
+       - Traditional Hotels: Names, star ratings, price range, notable amenities
+       - Local/Unique Stays: Guesthouses, boutique hotels, or other distinctive options with
+         descriptions of what makes them special
+       - Budget Options: Hostels or affordable hotels when applicable
+    3) General advice about accommodation in {destination}, including booking tips and important
+       considerations for travelers.
+    Note any limitations regarding real-time availability or exact pricing.
 
-get_local_recommendations:
+get_local_context:
   description: >
-    Research and identify top recommendations for tourists visiting {destination} between
-    {start_date} and {end_date}. Use Yelp tools for dining/drinking spots. Use the POI search tool (Geoapify)
-    for activities, attractions (category 'tourism.attraction'), and museums (category 'entertainment.museum').
-    Use Wikipedia tools for a brief historical overview and fun facts.
+    Research and provide comprehensive destination information for {destination}, focusing on
+    historical context, cultural insights, practical visitor information, and attractions.
+    Use Wikipedia tools for historical research and cultural background. Use Geoapify POI search
+    to identify key attractions (category 'tourism.attraction'), museums (category 'entertainment.museum'),
+    and other points of interest. Create a guide that balances factual information with cultural
+    context to help travelers understand and appreciate the destination more deeply. Consider
+    the traveler's interests ({interests}) and travel style ({travel_style}) when highlighting
+    attractions.
   expected_output: >
-    Four distinct sections:
-    1. Brief History & Fun Facts: A concise summary (1-2 paragraphs) of {destination}'s history and interesting facts (from Wikipedia).
-    2. Top 3-5 Activities/Attractions: List from Geoapify POI search (category 'tourism.attraction', etc.) with Name, Address/Location.
-    3. Top 3 Museums: List from Geoapify POI search (category 'entertainment.museum') with Name, Address/Location.
-    4. Top 3-5 Dining/Drinking spots: List from Yelp search with Name, Cuisine/Type, Price Range [$,$$,$$$], Address/Location, Rating.
-  # Agent assigned in crew.py: local_guide
+    A comprehensive local guide section with:
+    1) Historical & Cultural Context (1-2 paragraphs): Brief historical overview highlighting
+       key events and influences that shaped {destination}, important cultural aspects, and
+       any significant current context visitors should understand.
+    2) Must-See Attractions & Sights: List of 5-7 major attractions with brief descriptions,
+       locations, estimated time needed, and any practical visitor information.
+    3) Museums & Cultural Sites: 3-5 noteworthy museums or cultural institutions with focus/specialty,
+       location, and recommended for which types of travelers.
+    4) Hidden Gems & Local Experiences: 3-4 lesser-known but worthwhile attractions or experiences
+       that provide authentic local flavor.
+    5) Practical Information: Local customs, tipping practices, business hours, and other practical
+       tips specific to the destination.
+
+get_dining_recommendations:
+  description: >
+    Using Yelp tools, research and recommend outstanding dining experiences in {destination} for
+    travelers visiting between {start_date} and {end_date}. Find diverse options including fine dining,
+    mid-range restaurants, casual eateries, food markets, and unique culinary experiences. Recommendations
+    should cover various cuisine types with special emphasis on local specialties and authentic food
+    experiences. For each recommendation, include cuisine type, price range, signature dishes, atmosphere,
+    location, and why it's worth visiting. Consider the traveler's preferences ({budget}, {travel_style})
+    and any mentioned food interests or dietary needs.
+  expected_output: >
+    A well-structured dining section with:
+    1) Local Cuisine Overview: Brief description of the destination's culinary traditions and
+       signature dishes travelers should try.
+    2) Top Dining Recommendations: 5-7 specific restaurants across different categories:
+       - Fine Dining (1-2 options if applicable)
+       - Mid-Range Restaurants (2-3 options)
+       - Authentic Local Eateries (2-3 options)
+       - Quick/Casual Options (1-2 options)
+       For each, include: Name, Cuisine type, Price range [$-$$$$], Signature dishes,
+       Address/Neighborhood, Yelp rating if available, and brief description.
+    3) Food Experiences: 2-3 unique food-related experiences such as markets, food tours,
+       cooking classes, or street food areas.
+    4) Practical Dining Tips: Reservation customs, tipping practices, meal times, and any other
+       useful information for dining in this destination.
 
 get_weather_and_packing_advice:
   description: >
-    Provide a summarized weather forecast for {destination} between {start_date} and {end_date}
-    (including daily temperature ranges, precipitation chance). Based on this forecast, recommend
-    appropriate clothing types and essential items (e.g., umbrella, sunscreen) to pack.
+    Provide comprehensive travel preparation guidance for {destination} for the period {start_date} to {end_date}.
+    Research typical weather patterns including temperature ranges, precipitation likelihood, and any
+    seasonal considerations. Based on weather expectations, planned activities, and destination-specific
+    factors, create detailed packing recommendations. Include essential items specifically relevant to
+    this destination (appropriate clothing, accessories, electronics, health items), suggestions for what
+    to purchase locally rather than pack, and tips for dealing with any special environmental conditions
+    (altitude, humidity, etc.).
   expected_output: >
-    A concise weather summary section covering the trip duration (e.g., "Expect daily highs around X°C, lows around Y°C, with a medium chance of rain mid-week.").
-    Followed by a bulleted list of recommended packing items (e.g., "- Layers (T-shirts, sweaters) - Waterproof jacket - Comfortable walking shoes").
-  # Agent assigned in crew.py: packing_and_weather_advisor (No change needed)
+    A detailed weather and packing section with:
+    1) Weather Analysis: Comprehensive overview of expected weather during the travel period, 
+       including daily temperature ranges, precipitation probability, significant weather events
+       typical for this time of year, and other relevant climate factors.
+    2) Essential Packing List: Categorized recommendations including:
+       - Clothing: Specific items appropriate for the expected weather and activities
+       - Footwear: Appropriate options based on terrain and planned activities
+       - Accessories: Weather-appropriate and culturally-appropriate items
+       - Electronics: Necessary adapters, chargers, and devices
+       - Health & Toiletries: Destination-specific health items, medications, or toiletries
+       - Documents & Money: Required travel documents and payment recommendations
+    3) Destination-Specific Advice: Items particularly important for this location, suggested items
+       to purchase locally, and tips for dealing with any unique environmental conditions.
 
 compile_travel_report:
   description: >
-    Compile all gathered information from previous tasks (public transport options, potential accommodation locations,
-    weather/packing, local recommendations) into a single, comprehensive travel report document
-    for the trip to {destination} from {start_date} to {end_date}. Organize the information logically and ensure clarity,
-    noting any limitations (e.g., lack of real-time pricing for accommodation).
+    Compile all gathered information from specialist agents (transportation, accommodation, local guide,
+    dining expert, and weather/packing advisor) into a single, comprehensive travel report document
+    for the trip to {destination} from {start_date} to {end_date}. Organize the information in a logical
+    flow that guides the traveler through planning and experiencing their trip. Ensure all sections are
+    well-integrated while maintaining the detailed insights from each specialist area. Add an executive
+    summary at the beginning highlighting key recommendations across all categories. Note any limitations
+    in the available information.
   expected_output: >
-    A well-structured markdown document containing all the synthesized information
-    from the previous research tasks. The structure should follow standard travel itinerary sections
-    (e.g., Transportation (Public Transit), Accommodation (Locations), Local Guide, Weather/Packing).
-    Acknowledge where information like real-time pricing or booking details were not available due to tool limitations.
-  agent_assigned: report_compiler # Assigned in crew.py
-  # Context provided in crew.py from outputs of other tasks.
+    A well-structured markdown document containing all the synthesized information from the previous
+    research tasks. The document should follow this structure:
+    1) Trip Overview: Basic trip details and executive summary of key recommendations
+    2) Transportation: Complete information on getting to and around the destination
+    3) Accommodation: Recommended areas to stay and specific accommodation options
+    4) Destination Guide: Historical context, cultural insights, and attractions
+    5) Dining & Culinary Experiences: Restaurant recommendations and food experiences
+    6) Weather & Packing: Weather expectations and detailed packing recommendations
+    7) Practical Information: Additional useful tips for the destination
+    
+    The final report should be comprehensive yet readable, with clear headings and logical organization.
+    Acknowledge where information like real-time pricing or booking details was not available.
+  agent_assigned: report_compiler
+
+
+
+evaluate_report:
+  description: >
+    Using the compiled travel report **and** the raw outputs of the specialist
+    agents, review the itinerary according to the following rubric
+      1. Coverage (0-5) – does every requested section appear?
+      2. Factual Consistency (0-5) – do statements align with supporting data?
+      3. Readability (0-5) – is the document well-structured and easy to skim?
+      4. Actionability (0-5) – can a traveller use this plan without confusion?
+      5. Style / Tone (0-5) – clear, engaging, traveller-friendly writing.
+    For each category, give a short justification.  Conclude with:
+      • Total score /25  
+      • 3-5 priority suggestions for improvement  
+      • List of any statements that need fact-checking.
+  expected_output: >
+    **Evaluation Summary**
+
+    | Metric | Score | Notes |
+    | ------ | ----- | ----- |
+    | Coverage | X/5 | … |
+    | Factual Consistency | X/5 | … |
+    | Readability | X/5 | … |
+    | Actionability | X/5 | … |
+    | Style / Tone | X/5 | … |
+
+    **Total:** XX / 25
+
+    **Top Fixes**  
+    1. …  
+    2. …  
+    3. …
+
+    **Items to Verify**  
+    • …
+
+  agent_assigned: report_evaluator

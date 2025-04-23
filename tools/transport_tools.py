@@ -3,7 +3,7 @@ import os
 import requests
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
-from typing import Optional, Type, List
+from typing import Optional, Type, List, Dict, ClassVar
 
 # Store key in .env: TRANSITLAND_API_KEY=YOUR_KEY
 TRANSITLAND_API_KEY = os.getenv("TRANSITLAND_API_KEY")
@@ -14,6 +14,7 @@ class PublicTransportInput(BaseModel):
     longitude: float = Field(..., description="Longitude of the center point for the search")
     radius: int = Field(1000, description="Search radius in meters (default 1000m) to find nearby stops/routes")
     vehicle_type: Optional[str] = Field(None, description="Optional: Filter by vehicle type (e.g., 'bus', 'train', 'subway', 'tram')")
+    location_name: Optional[str] = Field("this location", description="Name of the location being searched")
 
 class PublicTransportSearchTool(BaseTool):
     """
@@ -32,98 +33,180 @@ class PublicTransportSearchTool(BaseTool):
     """
     args_schema: Type[BaseModel] = PublicTransportInput
 
-    def _run(self, latitude: float, longitude: float, radius: int = 1000, vehicle_type: Optional[str] = None) -> str:
+    def _run(self, latitude: float, longitude: float, radius: int = 1000, vehicle_type: Optional[str] = None, location_name: Optional[str] = "this location") -> str:
         """Executes the Transitland route search."""
-        if not TRANSITLAND_API_KEY:
-            return "Transitland API key not configured in .env file."
-
-        # Transitland API v2 endpoint for routes
-        base_url = "https://transit.land/api/v2/routes"
-
-        params = {
-            'lat': latitude,
-            'lon': longitude,
-            'radius': radius,
-            'per_page': 10 # Limit the number of results initially
-            # 'include': 'operator' # Optionally include operator details directly
-        }
-        if vehicle_type:
-            # Map common names to Transitland vehicle types if needed, or pass directly
-            # Check Transitland docs for exact vehicle type values (e.g., 0: Tram, 1: Subway, 2: Rail, 3: Bus, 4: Ferry...)
-            # For simplicity, we'll assume direct string matching might work for common types
-            # A more robust implementation would map user input ('train') to the correct code ('2')
-            params['vehicle_type'] = vehicle_type.lower() # Example, adjust based on API spec
-
-        headers = {
-            'ApiKey': TRANSITLAND_API_KEY,
-            'Accept': 'application/json'
-        }
-
         try:
-            print(f"Calling Transitland Routes API with params: {params}") # Debug print
-            response = requests.get(base_url, headers=headers, params=params)
-            response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
-            data = response.json()
-
-            if not data or 'routes' not in data or not data['routes']:
-                filter_msg = f" of type '{vehicle_type}'" if vehicle_type else ""
-                return f"No Transitland routes found{filter_msg} near ({latitude}, {longitude}) within {radius}m. Coverage may be limited."
-
-            results_str = f"Nearby Public Transport Routes near ({latitude}, {longitude}):\n\n"
-            seen_routes = set() # Avoid duplicates if API returns multiple entries for same route nearby
-            count = 0
-            max_display = 10 # Limit displayed results
-
-            for route in data['routes']:
-                if count >= max_display:
-                    break
-
-                route_id = route.get('onestop_id')
-                if route_id in seen_routes:
-                    continue # Skip duplicate
-
-                props = route.get('properties', {})
-                short_name = props.get('route_short_name', '')
-                long_name = props.get('route_long_name', '')
-                vehicle = props.get('vehicle_type', 'N/A') # Get vehicle type if available
-
-                # Construct a display name
-                display_name = f"{short_name} - {long_name}" if short_name and long_name else long_name or short_name or "Unnamed Route"
-
-                # Extract operator info (might be nested differently, check API response)
-                # This assumes operator info is directly in properties or relationships
-                operator_name = "Unknown Operator"
-                agency_info = props.get('agency', {}) # Check properties first
-                if agency_info:
-                    operator_name = agency_info.get('agency_name', operator_name)
-                # Alternatively, check relationships if 'operator' was included
-                # relationships = route.get('relationships', {}).get('operator', {}).get('data', {})
-                # operator_onestop_id = relationships.get('id')
-                # Need another API call to get operator details from ID usually, unless included
-
-                results_str += f"{count+1}. Route: {display_name}\n"
-                results_str += f"   Type: {vehicle}\n"
-                results_str += f"   Operator: {operator_name}\n" # Operator info might require another call or 'include' param
-                results_str += f"   Transitland ID: {route_id}\n\n"
-
-                seen_routes.add(route_id)
-                count += 1
-
-            if count == 0:
-                 filter_msg = f" of type '{vehicle_type}'" if vehicle_type else ""
-                 return f"Found route data but could not parse details for routes{filter_msg} near ({latitude}, {longitude})."
-
-            if 'meta' in data and data['meta'].get('next'):
-                results_str += "(More routes might be available...)\n"
-
-            return results_str
-
-        except requests.exceptions.RequestException as e:
-            print(f"Error calling Transitland API: {e}") # Log error
-            # Check for common errors like 401 Unauthorized
-            if e.response is not None and e.response.status_code == 401:
-                 return "Error calling Transitland API: Unauthorized. Check your TRANSITLAND_API_KEY."
-            return f"Error calling Transitland API: {e}"
+            # Try to access the API directly through the REST endpoint instead of routes endpoint
+            # This is an alternative approach that might work better
+            base_url = "https://transit.land/api/v2/rest/stops"
+            
+            params = {
+                'lat': latitude,
+                'lon': longitude,
+                'radius': radius,
+                'apikey': TRANSITLAND_API_KEY,  # Use apikey parameter as documented
+            }
+            
+            headers = {
+                'Accept': 'application/json',
+                'User-Agent': 'TravelAgentCrew/1.0'
+            }
+            
+            # Increase timeout from 10 to 20 seconds
+            response = requests.get(base_url, params=params, headers=headers, timeout=20)
+            
+            # Check if the request was successful
+            if response.status_code == 200:
+                data = response.json()
+                if 'stops' in data and data['stops']:
+                    # Process the stops data to extract route information
+                    stops_count = len(data['stops'])
+                    routes_set = set()
+                    
+                    # Extract unique routes from the stops
+                    for stop in data['stops']:
+                        if 'routes' in stop:
+                            for route in stop['routes']:
+                                route_name = route.get('route_name', 'Unnamed Route')
+                                agency_name = route.get('agency_name', 'Unknown Agency')
+                                route_id = f"{route_name} ({agency_name})"
+                                routes_set.add(route_id)
+                    
+                    # Format the results
+                    results_str = f"Public Transport Options near {location_name} ({latitude}, {longitude}):\n\n"
+                    results_str += f"Found {stops_count} transit stops within {radius}m.\n\n"
+                    
+                    if routes_set:
+                        results_str += "Routes serving this area:\n"
+                        for i, route in enumerate(sorted(list(routes_set)), 1):
+                            results_str += f"{i}. {route}\n"
+                    else:
+                        results_str += "No specific route information available for these stops.\n"
+                    
+                    results_str += "\nNote: This information is based on available transit data and may not include all routes or recent changes."
+                    return results_str
+                else:
+                    return f"No transit stops found near {location_name} ({latitude}, {longitude}) within {radius}m. The area may not have public transportation coverage in our database."
+            else:
+                # Handle API error
+                print(f"API Error: {response.status_code} - {response.text}")
+                return self._get_fallback_message(latitude, longitude, location_name)
+                
+        except requests.exceptions.Timeout:
+            print(f"Timeout while accessing Transitland API for {location_name}")
+            return self._get_fallback_message(latitude, longitude, location_name)
+            
         except Exception as e:
-            print(f"Unexpected error processing Transitland route search: {str(e)}") # Log error
-            return f"Unexpected error processing Transitland route search: {str(e)}"
+            print(f"Error calling Transitland API: {str(e)}")
+            return self._get_fallback_message(latitude, longitude, location_name)
+    
+    def _get_fallback_message(self, latitude, longitude, location_name):
+        """Return a fallback message when API access fails."""
+        return f"""
+**Important Note:** Unable to retrieve public transportation data for {location_name} ({latitude}, {longitude}). This could be due to API limitations, coverage gaps, or temporary service issues.
+
+For accurate public transportation information, please check these resources:
+- Local transit authority websites
+- Google Maps transit directions
+- Transit apps like Citymapper, Moovit, or Transit
+- Official tourism websites for the destination
+
+For intercity travel, consider:
+- Airlines for flights
+- Rail services for long-distance train travel
+- Bus companies for intercity coaches
+- Ride-sharing services
+
+I apologize for not being able to provide specific route details at this time.
+"""
+
+# City code lookup tool for Amadeus integration
+class CityCodeLookupInput(BaseModel):
+    """Input schema for CityCodeLookupTool."""
+    city_name: str = Field(..., description="The name of the city to lookup the IATA code for")
+    country_code: Optional[str] = Field(None, description="Optional: The two-letter ISO country code to refine the search")
+
+class CityCodeLookupTool(BaseTool):
+    """
+    A simple tool to lookup IATA city codes for major cities.
+    This is needed for Amadeus API calls which require city codes.
+    """
+    name: str = "city_code_lookup"
+    description: str = """
+    Looks up the IATA city code for a given city name.
+    Useful when you need to convert a city name to its 3-letter IATA code for flight searches.
+    """
+    args_schema: Type[BaseModel] = CityCodeLookupInput
+    
+    # A small database of major city codes
+    CITY_CODES: ClassVar[Dict[str, str]] = {
+        "new york": "NYC",
+        "paris": "PAR",
+        "london": "LON",
+        "tokyo": "TYO",
+        "rome": "ROM",
+        "barcelona": "BCN",
+        "amsterdam": "AMS",
+        "berlin": "BER",
+        "singapore": "SIN",
+        "hong kong": "HKG",
+        "sydney": "SYD",
+        "dubai": "DXB",
+        "los angeles": "LAX",
+        "chicago": "CHI",
+        "miami": "MIA",
+        "toronto": "YTO",
+        "madrid": "MAD",
+        "munich": "MUC",
+        "bangkok": "BKK",
+        "beijing": "BJS",
+        "shanghai": "SHA",
+        "delhi": "DEL",
+        "mumbai": "BOM",
+        "rio de janeiro": "RIO",
+        "sao paulo": "SAO",
+        "mexico city": "MEX",
+        "cairo": "CAI",
+        "johannesburg": "JNB",
+        "moscow": "MOW",
+        "istanbul": "IST",
+        "athens": "ATH",
+        "vienna": "VIE",
+        "dublin": "DUB",
+        "brussels": "BRU",
+        "zurich": "ZRH",
+        "geneva": "GVA",
+        "stockholm": "STO",
+        "oslo": "OSL",
+        "copenhagen": "CPH",
+        "helsinki": "HEL",
+        "seoul": "SEL",
+        "kuala lumpur": "KUL",
+        "manila": "MNL",
+        "jakarta": "JKT",
+        "boston": "BOS",
+        "san francisco": "SFO",
+        "washington": "WAS",
+        "seattle": "SEA",
+        "vancouver": "YVR",
+        "montreal": "YMQ",
+        "melbourne": "MEL",
+        "auckland": "AKL",
+        "wellington": "WLG"
+    }
+    
+    def _run(self, city_name: str, country_code: Optional[str] = None) -> str:
+        """Find the IATA city code for the given city."""
+        city_key = city_name.lower().strip()
+        
+        # First try direct match
+        if city_key in self.CITY_CODES:
+            return f"IATA city code for {city_name}: {self.CITY_CODES[city_key]}"
+        
+        # Try partial match
+        for known_city, code in self.CITY_CODES.items():
+            if city_key in known_city or known_city in city_key:
+                return f"IATA city code for {city_name} (matched as {known_city}): {code}"
+        
+        # No match found
+        return f"Could not find IATA city code for {city_name}. Please use a more common city name or specify a major nearby city. For flights, you may need to search for the nearest major airport code."

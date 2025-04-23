@@ -1,260 +1,390 @@
 """
-Yelp API tools for the travel agent crew.
+Enhanced Yelp tools for fetching restaurant and culinary experience information.
 """
 import os
-import json
+import re
+import requests
+from typing import Dict, Any, List, Optional
 from crewai.tools import BaseTool
-from yelpapi import YelpAPI
-from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
-
-class YelpInput(BaseModel):
-    """Input for the YelpSearchTool."""
-    term: str = Field(..., description="The search term, e.g., 'restaurants' or 'Italian food'")
-    location: str = Field(..., description="The location to search in, e.g., 'Paris, France'")
-    price: Optional[str] = Field(None, description="Price level (1, 2, 3, 4) where 1 is $ and 4 is $$$$")
-    limit: Optional[int] = Field(5, description="Number of results to return (default 5, max 10)")
 
 class YelpRestaurantSearchTool(BaseTool):
-    """Tool that searches for restaurants using Yelp API."""
+    """Tool for searching restaurants using Yelp Fusion API."""
     name: str = "yelp_restaurant_search"
-    description: str = """
-    Useful for finding restaurants, cafes, and other dining options.
-    Input should include a search term (e.g., 'Italian restaurants') and a location (e.g., 'Rome, Italy').
-    Optionally include a price level (1-4, where 1 is $ and 4 is $$$$) and the number of results to return.
-    """
-    yelp_api: Any = None
+    description: str = "Search for restaurants, cafes, and bars using Yelp"
     
-    def __init__(self):
-        """Initialize the Yelp API client."""
+    def __init__(self, api_key=None):
         super().__init__()
-        api_key = os.getenv("YELP_API_KEY")
-        if not api_key:
-            # For development without API key, provide mock data
-            self.yelp_api = None
-            print("WARNING: YELP_API_KEY not set, using mock restaurant data")
-        else:
-            self.yelp_api = YelpAPI(api_key=api_key)
+        self.api_key = api_key or os.getenv('YELP_API_KEY')
+        if not self.api_key:
+            raise ValueError("Yelp API key is required.")
     
-    def _run(self, term: str, location: str, price: Optional[str] = None, limit: Optional[int] = 5) -> str:
-        """Run the Yelp restaurant search tool."""
+    def _run(self, query: str) -> str:
+        """
+        Search for restaurants on Yelp based on query string.
+        
+        Args:
+            query: Search string (e.g., "Italian restaurants in New York")
+            
+        Returns:
+            Formatted string with restaurant results
+        """
+        # Parse query to extract location and other parameters
+        location = self._extract_location(query)
+        term = self._clean_query(query, location)
+        price = self._extract_price(query)
+        sort_by = self._extract_sort(query)
+        limit = self._extract_limit(query)
+        
+        if not location:
+            return "Error: Location is required for restaurant search. Please specify a location (e.g., 'restaurants in Paris')."
+        
+        # Call Yelp API
+        results = self._api_call(term, location, price, sort_by, limit)
+        
+        # Format results
+        return self._format_results(results, location)
+    
+    def _extract_location(self, query: str) -> Optional[str]:
+        """Extract location from query."""
+        location_match = re.search(r'in\s+([^,\.]+(?:,\s*[^,\.]+)?)', query.lower())
+        if location_match:
+            return location_match.group(1).strip()
+        return None
+    
+    def _clean_query(self, query: str, location: str) -> str:
+        """Clean query by removing location and parameters."""
+        if location:
+            query = query.replace(f"in {location}", "").strip()
+        
+        # Remove price, sort, and limit parameters
+        query = re.sub(r'price:?\s*\d+(?:,\s*\d+)*', '', query, flags=re.IGNORECASE)
+        query = re.sub(r'sort:?\s*(?:rating|review_count|distance)', '', query, flags=re.IGNORECASE)
+        query = re.sub(r'limit:?\s*\d+', '', query, flags=re.IGNORECASE)
+        
+        # Add keywords for better results if not present
+        keywords = ["restaurant", "food", "dining", "eat"]
+        if not any(keyword in query.lower() for keyword in keywords):
+            query += " restaurant food"
+            
+        return query.strip()
+    
+    def _extract_price(self, query: str) -> Optional[str]:
+        """Extract price parameter from query."""
+        price_match = re.search(r'price:?\s*(\d+(?:,\s*\d+)*)', query, flags=re.IGNORECASE)
+        if price_match:
+            return price_match.group(1).replace(" ", "")
+        return None
+    
+    def _extract_sort(self, query: str) -> str:
+        """Extract sort parameter from query."""
+        sort_match = re.search(r'sort:?\s*(rating|review_count|distance)', query, flags=re.IGNORECASE)
+        if sort_match:
+            return sort_match.group(1).lower()
+        return "rating"  # Default
+    
+    def _extract_limit(self, query: str) -> int:
+        """Extract limit parameter from query."""
+        limit_match = re.search(r'limit:?\s*(\d+)', query, flags=re.IGNORECASE)
+        if limit_match:
+            return min(int(limit_match.group(1)), 50)  # Yelp API max is 50
+        return 10  # Default
+    
+    def _api_call(self, term: str, location: str, price: Optional[str] = None, 
+                 sort_by: str = "rating", limit: int = 10) -> Dict[str, Any]:
+        """Call Yelp Fusion API."""
+        endpoint = "https://api.yelp.com/v3/businesses/search"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}"
+        }
+        params = {
+            "term": term,
+            "location": location,
+            "sort_by": sort_by,
+            "limit": limit
+        }
+        if price:
+            params["price"] = price
+        
         try:
-            # Check if we have a real API client
-            if not self.yelp_api:
-                # Return mock data if no API key
-                return self._get_mock_restaurants(term, location, price, limit)
-                
-            # Validate and process inputs
-            if limit > 10:
-                limit = 10  # Cap at 10 to avoid excessive results
-            
-            # Convert price string to Yelp format (comma-separated)
-            price_filter = None
-            if price:
-                price_levels = [p.strip() for p in price.split(',')]
-                price_filter = ','.join([p for p in price_levels if p in ['1', '2', '3', '4']])
-            
-            # Execute search
-            search_params = {
-                'term': term,
-                'location': location,
-                'limit': limit,
-                'categories': 'restaurants,food'
-            }
-            if price_filter:
-                search_params['price'] = price_filter
-            
-            response = self.yelp_api.search_query(**search_params)
-            
-            # Format results
-            if not response or 'businesses' not in response or not response['businesses']:
-                return f"No restaurants found for '{term}' in {location}"
-            
-            formatted_results = f"Restaurants found for '{term}' in {location}:\n\n"
-            for i, business in enumerate(response['businesses'], 1):
-                formatted_results += f"{i}. {business.get('name', 'Unknown')}\n"
-                if 'price' in business:
-                    formatted_results += f"   Price: {business['price']}\n"
-                if 'rating' in business:
-                    formatted_results += f"   Rating: {business['rating']}/5 ({business.get('review_count', 0)} reviews)\n"
-                if 'categories' in business:
-                    categories = [cat['title'] for cat in business['categories']]
-                    formatted_results += f"   Categories: {', '.join(categories[:3])}\n"
-                if 'location' in business and 'display_address' in business['location']:
-                    formatted_results += f"   Address: {', '.join(business['location']['display_address'])}\n"
-                if 'display_phone' in business:
-                    formatted_results += f"   Phone: {business['display_phone']}\n"
-                if 'url' in business:
-                    formatted_results += f"   More info: {business['url']}\n"
-                formatted_results += "\n"
-            
-            return formatted_results
-        except Exception as e:
-            return f"Error searching for restaurants: {str(e)}"
+            response = requests.get(endpoint, headers=headers, params=params)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            return {"error": f"Error calling Yelp API: {str(e)}"}
     
-    def _get_mock_restaurants(self, term: str, location: str, price: Optional[str] = None, limit: Optional[int] = 5) -> str:
-        """Return mock restaurant data when no API key is available."""
-        # Generate mock restaurant data with the search parameters
-        mock_restaurants = [
-            {
-                "name": f"Delicious {term.title()} Place",
-                "price": "$$$" if price and int(price) > 2 else "$$",
-                "rating": 4.5,
-                "review_count": 123,
-                "categories": ["Italian", "Pizza", "Pasta"],
-                "address": f"123 Main St, {location}",
-                "phone": "+1-123-456-7890"
-            },
-            {
-                "name": f"Amazing {term.title()} Restaurant",
-                "price": "$$" if price and int(price) > 2 else "$",
-                "rating": 4.2,
-                "review_count": 87,
-                "categories": ["Italian", "Wine Bar"],
-                "address": f"456 Oak Ave, {location}",
-                "phone": "+1-234-567-8901"
-            },
-        ]
+    def _format_results(self, results: Dict[str, Any], location: str) -> str:
+        """Format API results into readable text."""
+        if "error" in results:
+            return f"Error: {results['error']}"
         
-        # Format the mock results
-        formatted_results = f"Restaurants found for '{term}' in {location}:\n\n"
-        for i, business in enumerate(mock_restaurants[:limit], 1):
-            formatted_results += f"{i}. {business['name']}\n"
-            formatted_results += f"   Price: {business['price']}\n"
-            formatted_results += f"   Rating: {business['rating']}/5 ({business['review_count']} reviews)\n"
-            formatted_results += f"   Categories: {', '.join(business['categories'])}\n"
-            formatted_results += f"   Address: {business['address']}\n"
-            formatted_results += f"   Phone: {business['phone']}\n"
-            formatted_results += "\n"
+        if "businesses" not in results or not results["businesses"]:
+            return f"No restaurants found in {location} matching your criteria."
         
-        return formatted_results
+        businesses = results["businesses"]
+        formatted_output = f"Top Restaurants in {location}:\n\n"
+        
+        for i, business in enumerate(businesses):
+            name = business.get("name", "Unknown")
+            rating = business.get("rating", "N/A")
+            review_count = business.get("review_count", 0)
+            price = business.get("price", "$")
+            categories = ", ".join([cat.get("title", "") for cat in business.get("categories", [])])
+            address = ", ".join(business.get("location", {}).get("display_address", ["Address unavailable"]))
+            phone = business.get("display_phone", "Phone unavailable")
+            
+            formatted_output += f"🍽️ **{name}** ({categories}) - {price}\n"
+            formatted_output += f"   Rating: {rating}/5.0 ({review_count} reviews)\n"
+            formatted_output += f"   Address: {address}\n"
+            formatted_output += f"   Phone: {phone}\n\n"
+        
+        return formatted_output
 
-class LocalFoodExperienceTool(BaseTool):
-    """Tool that finds local and authentic food experiences using Yelp API."""
-    name: str = "find_local_food"
-    description: str = """
-    Useful for finding authentic, local food experiences that are popular with locals rather than tourists.
-    Input should be a location (e.g., 'Kyoto, Japan').
-    """
-    yelp_api: Any = None
+class YelpCulinaryExperienceTool(BaseTool):
+    """Tool for finding unique culinary experiences using Yelp Fusion API."""
+    name: str = "yelp_culinary_experiences"
+    description: str = "Find food tours, cooking classes, markets and unique food experiences"
     
-    def __init__(self):
-        """Initialize the Yelp API client."""
+    def __init__(self, api_key=None):
         super().__init__()
-        api_key = os.getenv("YELP_API_KEY")
-        if not api_key:
-            # For development without API key, provide mock data
-            self.yelp_api = None
-            print("WARNING: YELP_API_KEY not set, using mock local food data")
+        self.api_key = api_key or os.getenv('YELP_API_KEY')
+        if not self.api_key:
+            raise ValueError("Yelp API key is required.")
+        
+        # Define experience types and search terms
+        self.experience_types = {
+            "food_tour": "food tour culinary tour walking food tour",
+            "cooking_class": "cooking class culinary class",
+            "food_market": "food market farmers market",
+            "street_food": "street food food stalls"
+        }
+    
+    def _run(self, query: str) -> str:
+        """
+        Find culinary experiences on Yelp based on query string.
+        
+        Args:
+            query: Search string (e.g., "food tours in Paris")
+            
+        Returns:
+            Formatted string with culinary experience results
+        """
+        # Parse query
+        location = self._extract_location(query)
+        experience_type = self._extract_experience_type(query)
+        
+        if not location:
+            return "Error: Location is required for culinary experience search. Please specify a location (e.g., 'food tours in Paris')."
+        
+        # Call Yelp API for each experience type
+        if experience_type == "all":
+            results = []
+            for exp_type, search_term in self.experience_types.items():
+                exp_results = self._api_call(search_term, location, limit=5)
+                if "error" not in exp_results and "businesses" in exp_results and exp_results["businesses"]:
+                    results.append((exp_type, exp_results))
         else:
-            self.yelp_api = YelpAPI(api_key=api_key)
+            search_term = self.experience_types.get(experience_type, self.experience_types["food_tour"])
+            api_results = self._api_call(search_term, location, limit=10)
+            results = [(experience_type, api_results)]
+        
+        # Format results
+        return self._format_results(results, location)
     
-    def _run(self, location: str) -> str:
-        """Run the local food experience tool."""
+    def _extract_location(self, query: str) -> Optional[str]:
+        """Extract location from query."""
+        location_match = re.search(r'in\s+([^,\.]+(?:,\s*[^,\.]+)?)', query.lower())
+        if location_match:
+            return location_match.group(1).strip()
+        return None
+    
+    def _extract_experience_type(self, query: str) -> str:
+        """Extract experience type from query."""
+        query_lower = query.lower()
+        for exp_type in self.experience_types:
+            if exp_type.replace("_", " ") in query_lower:
+                return exp_type
+        
+        # Check for keywords
+        if "tour" in query_lower:
+            return "food_tour"
+        elif "class" in query_lower:
+            return "cooking_class"
+        elif "market" in query_lower:
+            return "food_market"
+        elif "street" in query_lower:
+            return "street_food"
+        
+        return "all"  # Default to all types
+    
+    def _api_call(self, term: str, location: str, limit: int = 10) -> Dict[str, Any]:
+        """Call Yelp Fusion API."""
+        endpoint = "https://api.yelp.com/v3/businesses/search"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}"
+        }
+        params = {
+            "term": term,
+            "location": location,
+            "sort_by": "rating",
+            "limit": limit
+        }
+        
         try:
-            # Check if we have a real API client
-            if not self.yelp_api:
-                # Return mock data if no API key
-                return self._get_mock_local_food(location)
-                
-            # Search for highly-rated local food options
-            search_params = {
-                'term': 'local authentic food',
-                'location': location,
-                'limit': 5,
-                'sort_by': 'rating',
-                'attributes': 'hot_and_new',
-                'categories': 'restaurants,food'
-            }
-            
-            response = self.yelp_api.search_query(**search_params)
-            
-            # Try additional searches for better coverage
-            local_terms = ["traditional food", "local cuisine"]
-            all_businesses = []
-            seen_ids = set()
-            
-            # Add initial results
-            if response and 'businesses' in response:
-                for business in response['businesses']:
-                    if business['id'] not in seen_ids:
-                        seen_ids.add(business['id'])
-                        all_businesses.append(business)
-            
-            # Additional searches
-            for term in local_terms:
-                try:
-                    additional_response = self.yelp_api.search_query(
-                        term=term,
-                        location=location,
-                        limit=5,
-                        sort_by='rating',
-                        categories='restaurants,food'
-                    )
-                    
-                    if additional_response and 'businesses' in additional_response:
-                        for business in additional_response['businesses']:
-                            if business['id'] not in seen_ids:
-                                seen_ids.add(business['id'])
-                                all_businesses.append(business)
-                except:
-                    continue
-            
-            # Sort by rating and review count
-            all_businesses.sort(key=lambda x: (x.get('rating', 0), x.get('review_count', 0)), reverse=True)
-            
-            # Format results
-            if not all_businesses:
-                return f"No local food experiences found in {location}"
-            
-            formatted_results = f"Authentic Local Food Experiences in {location}:\n\n"
-            for i, business in enumerate(all_businesses[:8], 1):  # Limit to top 8
-                formatted_results += f"{i}. {business.get('name', 'Unknown')}\n"
-                if 'price' in business:
-                    formatted_results += f"   Price: {business['price']}\n"
-                if 'rating' in business:
-                    formatted_results += f"   Rating: {business['rating']}/5 ({business.get('review_count', 0)} reviews)\n"
-                if 'categories' in business:
-                    categories = [cat['title'] for cat in business['categories']]
-                    formatted_results += f"   Cuisine: {', '.join(categories[:3])}\n"
-                if 'location' in business and 'display_address' in business['location']:
-                    formatted_results += f"   Address: {', '.join(business['location']['display_address'])}\n"
-                formatted_results += "\n"
-            
-            return formatted_results
-        except Exception as e:
-            return f"Error finding local food experiences: {str(e)}"
+            response = requests.get(endpoint, headers=headers, params=params)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            return {"error": f"Error calling Yelp API: {str(e)}"}
     
-    def _get_mock_local_food(self, location: str) -> str:
-        """Return mock local food data when no API key is available."""
-        # Generate mock local food data
-        mock_local_foods = [
-            {
-                "name": f"Authentic {location} Kitchen",
-                "price": "$$",
-                "rating": 4.8,
-                "review_count": 203,
-                "categories": ["Local Cuisine", "Traditional"],
-                "address": f"789 Local St, {location}"
-            },
-            {
-                "name": f"Local's Favorite in {location}",
-                "price": "$",
-                "rating": 4.7,
-                "review_count": 158,
-                "categories": ["Street Food", "Regional"],
-                "address": f"321 Hidden Alley, {location}"
-            },
+    def _format_results(self, results: List[tuple], location: str) -> str:
+        """Format API results into readable text."""
+        if not results:
+            return f"No culinary experiences found in {location}."
+        
+        formatted_output = f"Culinary Experiences in {location}:\n\n"
+        
+        for exp_type, api_results in results:
+            if "error" in api_results:
+                formatted_output += f"Error finding {exp_type.replace('_', ' ')}s: {api_results['error']}\n\n"
+                continue
+            
+            if "businesses" not in api_results or not api_results["businesses"]:
+                formatted_output += f"No {exp_type.replace('_', ' ')}s found in {location}.\n\n"
+                continue
+            
+            # Add section header
+            formatted_output += f"## {exp_type.replace('_', ' ').title()}s\n\n"
+            
+            # Add businesses
+            for business in api_results["businesses"]:
+                name = business.get("name", "Unknown")
+                rating = business.get("rating", "N/A")
+                review_count = business.get("review_count", 0)
+                price = business.get("price", "$")
+                categories = ", ".join([cat.get("title", "") for cat in business.get("categories", [])])
+                address = ", ".join(business.get("location", {}).get("display_address", ["Address unavailable"]))
+                
+                formatted_output += f"🍳 **{name}** - {price}\n"
+                formatted_output += f"   Rating: {rating}/5.0 ({review_count} reviews)\n"
+                formatted_output += f"   Categories: {categories}\n"
+                formatted_output += f"   Address: {address}\n\n"
+        
+        return formatted_output
+
+class LocalFoodSpecialtiesTool(BaseTool):
+    """Tool for finding local food specialties using Yelp Fusion API."""
+    name: str = "local_food_specialties"
+    description: str = "Find local and traditional food specialties in a destination"
+    
+    def __init__(self, api_key=None):
+        super().__init__()
+        self.api_key = api_key or os.getenv('YELP_API_KEY')
+        if not self.api_key:
+            raise ValueError("Yelp API key is required.")
+    
+    def _run(self, query: str) -> str:
+        """
+        Find local food specialties and where to try them.
+        
+        Args:
+            query: Search string (e.g., "local food specialties in Tokyo")
+            
+        Returns:
+            Formatted string with local food specialty results
+        """
+        # Parse query
+        location = self._extract_location(query)
+        
+        if not location:
+            return "Error: Location is required to find local food specialties. Please specify a destination (e.g., 'local food in Paris')."
+        
+        # Search for traditional and local food
+        search_terms = [
+            "traditional local food specialty",
+            "famous local dish",
+            "must try food",
+            "local cuisine specialty"
         ]
         
-        # Format the mock results
-        formatted_results = f"Authentic Local Food Experiences in {location}:\n\n"
-        for i, business in enumerate(mock_local_foods, 1):
-            formatted_results += f"{i}. {business['name']}\n"
-            formatted_results += f"   Price: {business['price']}\n"
-            formatted_results += f"   Rating: {business['rating']}/5 ({business['review_count']} reviews)\n"
-            formatted_results += f"   Cuisine: {', '.join(business['categories'])}\n"
-            formatted_results += f"   Address: {business['address']}\n"
-            formatted_results += "\n"
+        all_results = []
+        for term in search_terms:
+            results = self._api_call(f"{term} {location}", location, limit=5)
+            if "error" not in results and "businesses" in results and results["businesses"]:
+                all_results.extend(results["businesses"])
         
-        return formatted_results
+        # Remove duplicates
+        unique_businesses = {}
+        for business in all_results:
+            business_id = business.get("id")
+            if business_id and business_id not in unique_businesses:
+                unique_businesses[business_id] = business
+        
+        # Format results
+        return self._format_results(list(unique_businesses.values()), location)
+    
+    def _extract_location(self, query: str) -> Optional[str]:
+        """Extract location from query."""
+        location_match = re.search(r'in\s+([^,\.]+(?:,\s*[^,\.]+)?)', query.lower())
+        if location_match:
+            return location_match.group(1).strip()
+        
+        # Try to find location at the beginning
+        location_match = re.search(r'^([a-zA-Z\s]+)\s+(?:food|dish|cuisine|specialties)', query.lower())
+        if location_match:
+            return location_match.group(1).strip()
+            
+        return None
+    
+    def _api_call(self, term: str, location: str, limit: int = 10) -> Dict[str, Any]:
+        """Call Yelp Fusion API."""
+        endpoint = "https://api.yelp.com/v3/businesses/search"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}"
+        }
+        params = {
+            "term": term,
+            "location": location,
+            "sort_by": "rating",
+            "limit": limit
+        }
+        
+        try:
+            response = requests.get(endpoint, headers=headers, params=params)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            return {"error": f"Error calling Yelp API: {str(e)}"}
+    
+    def _format_results(self, businesses: List[Dict[str, Any]], location: str) -> str:
+        """Format API results into readable text."""
+        if not businesses:
+            return f"No local food specialties found for {location}."
+        
+        formatted_output = f"Local Food Specialties in {location}:\n\n"
+        
+        # Group by categories
+        category_businesses = {}
+        for business in businesses:
+            categories = business.get("categories", [])
+            for category in categories:
+                cat_title = category.get("title", "")
+                if cat_title and cat_title not in ["Restaurants", "Food"]:
+                    if cat_title not in category_businesses:
+                        category_businesses[cat_title] = []
+                    category_businesses[cat_title].append(business)
+        
+        # Output by category
+        for category, cat_businesses in category_businesses.items():
+            formatted_output += f"## {category}\n\n"
+            
+            for business in cat_businesses[:3]:  # Limit to 3 per category
+                name = business.get("name", "Unknown")
+                rating = business.get("rating", "N/A")
+                price = business.get("price", "$")
+                address = ", ".join(business.get("location", {}).get("display_address", ["Address unavailable"]))
+                
+                formatted_output += f"🥘 **{name}** - {price}\n"
+                formatted_output += f"   Rating: {rating}/5.0\n"
+                formatted_output += f"   Address: {address}\n\n"
+        
+        return formatted_output

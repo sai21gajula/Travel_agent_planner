@@ -1,140 +1,23 @@
-# #!/usr/bin/env python
-# """
-# Main entry point for the Travel Agent application.
-# """
-# import os
-# import sys
-# from dotenv import load_dotenv
-
-# # Load environment variables
-# load_dotenv()
-
-# try:
-#     # Import the crew
-#     from crew import TravelAgentCrew
-    
-#     # Import the tools wrapper (in case we need it directly)
-#     from tools.crewai_tools import wrap_tools
-    
-#     print("--- Travel Agent Application Starting ---")
-#     print("Initializing crew components...")
-    
-#     # Initialize the crew
-#     crew_runner = TravelAgentCrew()
-    
-#     # Launch Streamlit interface
-#     print("Starting Streamlit web interface...")
-    
-#     # Use Streamlit to run the app
-#     import streamlit as st
-    
-#     st.title("AI Travel Agent")
-    
-#     with st.form("travel_form"):
-#         st.header("Enter Your Travel Details")
-        
-#         starting_point = st.text_input("Starting location", "New York, USA")
-#         destination = st.text_input("Destination", "Paris, France")
-#         start_date = st.date_input("Start date")
-#         end_date = st.date_input("End date")
-        
-#         submit_button = st.form_submit_button("Plan My Trip")
-    
-#     if submit_button:
-#         st.write("Planning your trip... This may take several minutes.")
-        
-#         try:
-#             # Format dates as strings
-#             start_date_str = start_date.strftime("%Y-%m-%d")
-#             end_date_str = end_date.strftime("%Y-%m-%d")
-            
-#             # Initialize inputs
-#             inputs = {
-#                 'starting_point': starting_point,
-#                 'destination': destination,
-#                 'start_date': start_date_str,
-#                 'end_date': end_date_str
-#             }
-            
-#             # Run the crew with the inputs
-#             with st.spinner("AI agents are planning your trip..."):
-#                 report_path = crew_runner.kickoff(inputs=inputs)
-            
-#             # Display success
-#             st.success(f"Trip planning completed! Report saved to: {report_path}")
-            
-#             # Read and display the report
-#             try:
-#                 with open(report_path, 'r') as file:
-#                     report_content = file.read()
-#                 st.markdown(report_content)
-#             except:
-#                 st.error("Could not read the generated report file.")
-                
-#         except Exception as e:
-#             st.error(f"An error occurred during planning: {str(e)}")
-    
-# except Exception as e:
-#     print(f"An unexpected error occurred during initial setup: {str(e)}", file=sys.stderr)
-#     import traceback
-#     traceback.print_exc()
-#     sys.exit(1)
-
-
-#!/usr/bin/env python
 #!/usr/bin/env python
 """
 Main entry point for the Travel Agent application.
-Enhanced interactive Streamlit interface with improved user experience.
+Enhanced Streamlit interface with improved user experience and agent selection.
 """
 import os
 import sys
 import time
 import datetime
-from dotenv import load_dotenv
+import re
+import streamlit as st
+from datetime import timedelta
 
-# Load environment variables
-load_dotenv()
-
-# Ensure reports directory exists and is writable
+# Ensure reports directory exists
 reports_dir = 'reports'
-try:
-    os.makedirs(reports_dir, exist_ok=True)
-    test_file = os.path.join(reports_dir, 'test_write.txt')
-    with open(test_file, 'w') as f:
-        f.write('test')
-    os.remove(test_file)
-    print(f"Reports directory {reports_dir} exists and is writable")
-except Exception as e:
-    print(f"Error with reports directory: {str(e)}")
-    # Try to use a different directory
-    reports_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'reports')
-    try:
-        os.makedirs(reports_dir, exist_ok=True)
-        print(f"Using alternative reports directory: {reports_dir}")
-    except:
-        print("Unable to create reports directory")
+os.makedirs(reports_dir, exist_ok=True)
 
 try:
     # Import the crew
     from crew import TravelAgentCrew
-    
-    # Import the tools wrapper (in case we need it directly)
-    from tools.crewai_tools import wrap_tools
-    
-    print("--- Travel Agent Application Starting ---")
-    print("Initializing crew components...")
-    
-    # Initialize the crew
-    crew_runner = TravelAgentCrew()
-    
-    # Launch Streamlit interface
-    print("Starting Streamlit web interface...")
-    
-    # Use Streamlit to run the app
-    import streamlit as st
-    from datetime import timedelta
-    import random
     
     # Set page configuration
     st.set_page_config(
@@ -211,6 +94,7 @@ try:
             margin-right: 0.5rem;
             margin-bottom: 0.5rem;
             font-size: 0.9rem;
+            cursor: pointer;
         }
         .footer {
             text-align: center;
@@ -219,6 +103,57 @@ try:
             border-top: 1px solid #EEEEEE;
             color: #757575;
             font-size: 0.9rem;
+        }
+        /* Enhanced section styling */
+        h1 {
+            color: #0D47A1;
+            border-bottom: 2px solid #1E88E5;
+            padding-bottom: 10px;
+            margin-top: 30px;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #1565C0;
+            border-left: 4px solid #1E88E5;
+            padding-left: 10px;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+        h3 {
+            color: #1976D2;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        ul {
+            margin-bottom: 20px;
+        }
+        .report-container {
+            background-color: #FFFFFF;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+        .agent-selector {
+            border: 1px solid #E0E0E0;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+        .agent-header {
+            font-weight: bold;
+            color: #1565C0;
+        }
+        .agent-description {
+            font-size: 0.9rem;
+            color: #616161;
+            margin-top: 5px;
+        }
+        .loading-animation {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100px;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -236,6 +171,8 @@ try:
         st.session_state.trip_details = {}
     if 'planning_error' not in st.session_state:
         st.session_state.planning_error = None
+    if 'selected_destination' not in st.session_state:
+        st.session_state.selected_destination = None
     
     # Header
     st.markdown("<h1 class='main-header'>✈️ AI Travel Planner</h1>", unsafe_allow_html=True)
@@ -247,9 +184,10 @@ try:
         <div class="info-box">
         This AI Travel Planner uses multiple specialized AI agents to create your personalized travel itinerary:
         
-        • <b>Transport Planner</b>: Finds public transport options
+        • <b>Transport Planner</b>: Finds flights and local transport
         • <b>Accommodation Specialist</b>: Locates hotels and lodging
-        • <b>Local Guide</b>: Recommends attractions and dining
+        • <b>Local Guide</b>: Recommends attractions with cultural context
+        • <b>Yelp Dining Expert</b>: Finds restaurants and food experiences 
         • <b>Weather Advisor</b>: Provides packing suggestions
         </div>
         """, unsafe_allow_html=True)
@@ -263,10 +201,29 @@ try:
             "Bali, Indonesia", "Rio de Janeiro, Brazil"
         ]
         
-        st.markdown("<div>", unsafe_allow_html=True)
+        # Create destination tags with JavaScript click handlers
+        dest_html = "<div>"
         for dest in popular_destinations:
-            st.markdown(f"<span class='destination-tag'>{dest}</span>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+            dest_id = re.sub(r'[^a-zA-Z0-9]', '', dest)
+            dest_html += f'<span class="destination-tag" onclick="selectDestination(\'{dest}\')" id="{dest_id}">{dest}</span>'
+        dest_html += "</div>"
+        
+        # Add JavaScript to handle destination selection
+        st.markdown(dest_html, unsafe_allow_html=True)
+        st.markdown("""
+        <script>
+        function selectDestination(dest) {
+            // Use Streamlit's component communication
+            const data = {
+                destination: dest
+            };
+            window.parent.postMessage({
+                type: "streamlit:setComponentValue",
+                value: data
+            }, "*");
+        }
+        </script>
+        """, unsafe_allow_html=True)
         
         st.markdown("<h3>Planning Tips</h3>", unsafe_allow_html=True)
         st.markdown("""
@@ -306,7 +263,9 @@ try:
             start_date = st.date_input("Start Date", default_start_date, min_value=datetime.datetime.now().date())
         
         with col2:
-            destination = st.text_input("Destination", "Paris, France")
+            # If a destination was selected from the sidebar, use it
+            destination_placeholder = st.session_state.selected_destination or "Paris, France"
+            destination = st.text_input("Destination", destination_placeholder)
             end_date = st.date_input("End Date", default_end_date, min_value=start_date)
         
         # Additional travel preferences
@@ -356,6 +315,44 @@ try:
             height=100
         )
         
+        # Agent Selection Section
+        st.markdown("<h3 class='section-header'>Choose Your Travel Planning Experts</h3>", unsafe_allow_html=True)
+        st.markdown("Select which specialized AI agents you want to include in your travel planning team:")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("<div class='agent-selector'>", unsafe_allow_html=True)
+            use_transport = st.checkbox("Transport Planner", value=True)
+            st.markdown("<div class='agent-description'>Researches flights, local transit options, and transportation logistics between your starting point and destination.</div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+            
+            st.markdown("<div class='agent-selector'>", unsafe_allow_html=True)
+            use_accommodation = st.checkbox("Accommodation Specialist", value=True)
+            st.markdown("<div class='agent-description'>Finds hotels, vacation rentals, and other lodging options across different neighborhoods and price points.</div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+            
+            st.markdown("<div class='agent-selector'>", unsafe_allow_html=True)
+            use_local_guide = st.checkbox("Local Guide & Cultural Context", value=True)
+            st.markdown("<div class='agent-description'>Recommends attractions, museums, and experiences with historical and cultural insights about the destination.</div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown("<div class='agent-selector'>", unsafe_allow_html=True)
+            use_dining = st.checkbox("Dining & Culinary Expert", value=True)
+            st.markdown("<div class='agent-description'>Uses Yelp to find restaurants, cafes, food tours, and local dining experiences across different cuisines and price ranges.</div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+            
+            st.markdown("<div class='agent-selector'>", unsafe_allow_html=True)
+            use_weather = st.checkbox("Weather & Packing Advisor", value=True)
+            st.markdown("<div class='agent-description'>Analyzes typical weather for your dates and provides customized packing recommendations.</div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            st.markdown("<div class='agent-selector'>", unsafe_allow_html=True)
+            use_evaluator = st.checkbox("Report Evaluator", value=True)
+            st.markdown("<div class='agent-description'>Reviews the final travel plan for completeness, quality, and makes suggestions for improvement.</div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
         # Action buttons
         col1, col2 = st.columns([3, 1])
         with col1:
@@ -383,6 +380,29 @@ try:
                 start_date_str = start_date.strftime("%Y-%m-%d")
                 end_date_str = end_date.strftime("%Y-%m-%d")
                 
+                # Create active_agents list based on checkboxes
+                active_agents = []
+                if use_transport:
+                    active_agents.append('transport_planner')
+                if use_accommodation:
+                    active_agents.append('accommodation_finder')
+                if use_local_guide:
+                    active_agents.append('local_guide')
+                if use_dining:
+                    active_agents.append('yelp_dining_expert')
+                if use_weather:
+                    active_agents.append('packing_and_weather_advisor')
+                if use_evaluator:
+                    active_agents.append('report_evaluator')
+                
+                # Always include report compiler
+                active_agents.append('report_compiler')
+                
+                # Make sure at least one agent is selected
+                if len(active_agents) <= 1:  # Only report_compiler
+                    st.error("Please select at least one planning expert.")
+                    st.stop()
+                
                 # Initialize inputs
                 inputs = {
                     'starting_point': starting_point,
@@ -394,22 +414,52 @@ try:
                     'interests': interests,
                     'accommodation': accommodation_type,
                     'travel_style': travel_style,
-                    'special_requests': special_requests
+                    'special_requests': special_requests,
+                    'active_agents': active_agents
                 }
                 
                 # Save to session state
                 st.session_state.trip_details = inputs
                 
-                # Progress bar with messages
-                progress_messages = [
-                    "Researching transportation options...",
-                    "Finding accommodation suggestions...",
-                    "Discovering local attractions and activities...",
-                    "Checking weather and creating packing list...",
-                    "Generating personalized recommendations...",
-                    "Compiling your custom travel plan...",
-                    "Adding final touches to your itinerary..."
-                ]
+                # Progress messages for each agent
+                progress_messages = {
+                    'transport_planner': [
+                        "Researching flight options...",
+                        "Finding local transit routes...",
+                        "Analyzing transportation logistics..."
+                    ],
+                    'accommodation_finder': [
+                        "Finding accommodation options...",
+                        "Comparing neighborhoods...",
+                        "Analyzing hotel and lodging choices..."
+                    ],
+                    'local_guide': [
+                        "Researching local attractions...",
+                        "Finding cultural landmarks...",
+                        "Discovering hidden gems and experiences..."
+                    ],
+                    'yelp_dining_expert': [
+                        "Finding top restaurants...",
+                        "Discovering local food specialties...",
+                        "Locating unique culinary experiences..."
+                    ],
+                    'packing_and_weather_advisor': [
+                        "Checking weather forecast...",
+                        "Creating packing recommendations...",
+                        "Finalizing preparation advice..."
+                    ],
+                    'report_compiler': [
+                        "Compiling all research...",
+                        "Creating your personalized travel plan...",
+                        "Finalizing your travel itinerary..."
+                    ]
+                }
+                
+                # Create a list of all messages for active agents
+                all_progress_messages = []
+                for agent in active_agents:
+                    if agent in progress_messages:
+                        all_progress_messages.extend(progress_messages[agent])
                 
                 with st.spinner("AI agents are planning your trip..."):
                     # Create a progress bar
@@ -420,16 +470,18 @@ try:
                     start_time = time.time()
                     
                     try:
-                        # Simulate progress while actually running the crew
-                        for i, message in enumerate(progress_messages):
-                            # Update status message
+                        # Initialize the crew with the selected agents
+                        crew_runner = TravelAgentCrew(active_agents=active_agents)
+                        
+                        # Display agent-specific progress messages while actually running the crew
+                        for i, message in enumerate(all_progress_messages):
+                            # Update progress
+                            progress_value = (i + 1) / len(all_progress_messages)
+                            progress_bar.progress(progress_value)
                             status_text.text(message)
                             
-                            # Update progress bar
-                            progress_value = (i + 1) / len(progress_messages)
-                            progress_bar.progress(progress_value)
-                            
-                            if i == 0:  # Only in the first step do we actually run the crew
+                            # Only in the first step do we actually run the crew
+                            if i == 0:
                                 # Run the crew with the inputs
                                 report_path = crew_runner.kickoff(inputs=inputs)
                                 
@@ -438,70 +490,20 @@ try:
                                 planning_time = round(end_time - start_time, 1)
                                 st.session_state.planning_time = planning_time
                                 
-                                # Check for error conditions
-                                if report_path == "ERROR_GENERATING_REPORT" or report_path == "ERROR_DURING_KICKOFF":
-                                    st.session_state.planning_error = "Failed to generate a complete travel report. Please try again later."
-                                    # Create a fallback report path
-                                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                                    emergency_file = os.path.join('reports', f"error_report_{timestamp}.md")
-                                    dest = inputs.get('destination', 'destination')
-                                    start = inputs.get('start_date', 'start_date')
-                                    end = inputs.get('end_date', 'end_date')
-                                    
-                                    with open(emergency_file, 'w', encoding='utf-8') as file:
-                                        file.write(f"""# Your Travel Plan to {dest}
-
-## Trip Overview
-- **Destination**: {dest}
-- **Dates**: {start} to {end}
-- **Starting Point**: {inputs.get('starting_point', 'Not specified')}
-
-## What Happened?
-Our AI travel agents encountered technical difficulties while creating your detailed itinerary.
-
-Please try again in a few minutes. Our system is continuously improving to better serve your travel planning needs.
-
-*This is an automatically generated fallback plan due to technical limitations.*
-""")
-                                    report_path = emergency_file
-                                
-                                # Read the report content
-                                try:
-                                    with open(report_path, 'r', encoding='utf-8') as file:
-                                        report_content = file.read()
-                                    
-                                    # Check if content is empty or just whitespace
-                                    if not report_content or report_content.strip() == "":
-                                        st.session_state.planning_error = "The generated report appears to be empty. This might be due to API rate limits or temporary issues with external services."
-                                        # Create a minimal report
-                                        dest = inputs.get('destination', 'destination')
-                                        start = inputs.get('start_date', 'start_date')
-                                        end = inputs.get('end_date', 'end_date')
-                                        report_content = f"# Your Trip to {dest}\n\n**From {start} to {end}**\n\nI'm sorry, but we couldn't generate a detailed report at this time. Please try again later."
-                                    
-                                    # Store in session state
-                                    st.session_state.report_content = report_content
-                                    st.session_state.report_path = report_path
-                                    
-                                    # Add debugging information
-                                    print(f"Successfully read report file: {report_path}")
-                                    print(f"Report content length: {len(report_content)}")
-                                except Exception as e:
-                                    error_msg = f"Could not read the generated report file: {str(e)}"
-                                    st.session_state.planning_error = error_msg
-                                    print(error_msg)
-                                    print(f"Report path: {report_path}")
-                                    print(f"Report path exists: {os.path.exists(report_path) if report_path else 'N/A'}")
-                                    
-                                    # Create a fallback report
-                                    dest = inputs.get('destination', 'destination')
-                                    start = inputs.get('start_date', 'start_date')
-                                    end = inputs.get('end_date', 'end_date')
-                                    st.session_state.report_content = f"# Your Trip to {dest}\n\n**From {start} to {end}**\n\nI'm sorry, but we couldn't generate a detailed report at this time. Please try again later."
-                                    report_content = st.session_state.report_content
+                                # Process the report
+                                if report_path and os.path.exists(report_path):
+                                    try:
+                                        with open(report_path, 'r', encoding='utf-8') as file:
+                                            report_content = file.read()
+                                        st.session_state.report_content = report_content
+                                        st.session_state.report_path = report_path
+                                    except Exception as e:
+                                        st.session_state.planning_error = f"Error reading report: {str(e)}"
+                                else:
+                                    st.session_state.planning_error = "Failed to generate a report file."
                             else:
                                 # For the remaining steps, just add a short delay to show progress
-                                time.sleep(0.5)
+                                time.sleep(0.3)
                         
                         # Mark as trip planned
                         st.session_state.trip_planned = True
@@ -512,12 +514,12 @@ Please try again in a few minutes. Our system is continuously improving to bette
                     except Exception as e:
                         error_message = f"An error occurred during planning: {str(e)}"
                         st.error(error_message)
-                        print(error_message)
                         st.session_state.planning_error = error_message
         
         # Clear the form
         if clear_button:
             # Reset values but keep the trip_planned state
+            st.session_state.selected_destination = None
             st.rerun()
     
     else:
@@ -537,8 +539,6 @@ Please try again in a few minutes. Our system is continuously improving to bette
             st.markdown(f"""
             <div class='error-box'>
             <b>Notice:</b> {st.session_state.planning_error}
-            <br><br>
-            We've created a basic travel outline below. For a more detailed plan, please try again later.
             </div>
             """, unsafe_allow_html=True)
         
@@ -552,57 +552,27 @@ Please try again in a few minutes. Our system is continuously improving to bette
         
         # Report content
         if st.session_state.report_content:
-            # Add tabs to organize the information
-            tabs = st.tabs(["Complete Itinerary", "Transportation", "Accommodations", "Activities", "Packing List"])
+            # Display the full report in a container
+            st.markdown("<div class='report-container'>", unsafe_allow_html=True)
+            st.markdown(st.session_state.report_content)
+            st.markdown("</div>", unsafe_allow_html=True)
             
-            with tabs[0]:
-                # Display the full report
-                st.markdown(st.session_state.report_content)
-                
-                # Add download button
-                if st.session_state.report_path and os.path.exists(st.session_state.report_path):
-                    try:
-                        with open(st.session_state.report_path, "rb") as file:
-                            st.download_button(
-                                label="Download Complete Itinerary",
-                                data=file,
-                                file_name=f"Travel_Plan_{dest.replace(' ', '_').replace(',', '')}.md",
-                                mime="text/markdown",
-                            )
-                    except Exception as e:
-                        st.warning(f"Could not prepare download: {str(e)}")
-            
-            # These tabs would ideally extract just the relevant sections from the report
-            # For now, they show notes about what they would contain
-            with tabs[1]:
-                st.info("This tab would extract and display only the transportation information from your itinerary.")
-                st.markdown("### Transportation Highlights")
-                # Here we would ideally parse and extract just the transportation section from the report
-                st.markdown("To see your transportation details, please refer to the Complete Itinerary tab.")
-            
-            with tabs[2]:
-                st.info("This tab would extract and display only the accommodation information from your itinerary.")
-                st.markdown("### Accommodation Suggestions")
-                # Here we would ideally parse and extract just the accommodation section from the report
-                st.markdown("To see your accommodation details, please refer to the Complete Itinerary tab.")
-            
-            with tabs[3]:
-                st.info("This tab would extract and display only the activities and attractions from your itinerary.")
-                st.markdown("### Recommended Activities")
-                # Here we would ideally parse and extract just the activities section from the report
-                st.markdown("To see your recommended activities, please refer to the Complete Itinerary tab.")
-            
-            with tabs[4]:
-                st.info("This tab would extract and display only the packing list from your itinerary.")
-                st.markdown("### Packing Recommendations")
-                # Here we would ideally parse and extract just the packing list from the report
-                st.markdown("To see your packing recommendations, please refer to the Complete Itinerary tab.")
-        
+            # Add download button
+            if st.session_state.report_path and os.path.exists(st.session_state.report_path):
+                try:
+                    with open(st.session_state.report_path, "rb") as file:
+                        st.download_button(
+                            label="Download Complete Itinerary",
+                            data=file,
+                            file_name=f"Travel_Plan_{dest.replace(' ', '_').replace(',', '')}.md",
+                            mime="text/markdown",
+                        )
+                except Exception as e:
+                    st.warning(f"Could not prepare download: {str(e)}")
         else:
             st.error("Could not load the itinerary content. Please try again.")
         
         # Action buttons
-       # Action buttons
         col1, col2 = st.columns(2)
         
         with col1:
@@ -614,6 +584,7 @@ Please try again in a few minutes. Our system is continuously improving to bette
                 st.session_state.planning_time = None
                 st.session_state.trip_details = {}
                 st.session_state.planning_error = None
+                st.session_state.selected_destination = None
                 st.rerun()
         
         with col2:
@@ -668,36 +639,22 @@ Please try again in a few minutes. Our system is continuously improving to bette
     
 except Exception as e:
     st.error(f"An unexpected error occurred during application setup: {str(e)}")
-    print(f"An unexpected error occurred during initial setup: {str(e)}", file=sys.stderr)
-    import traceback
-    traceback.print_exc()
-    
-    # Create a more user-friendly error page
-    st.markdown("<h1 class='main-header'>✈️ AI Travel Planner</h1>", unsafe_allow_html=True)
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.markdown("<h2 class='sub-header'>System Temporarily Unavailable</h2>", unsafe_allow_html=True)
-    
+
+    # Create a more user-friendly error message
     st.markdown("""
     <div class="error-box">
-    <p>We're sorry, but the AI Travel Planner is currently unavailable. Our team has been notified and is working to resolve the issue.</p>
+    <h3>Application Error</h3>
+    <p>We're sorry, but the Travel Agent application encountered an unexpected error during startup.</p>
     
-    <p><b>Possible reasons:</b></p>
+    <p><b>Possible solutions:</b></p>
     <ul>
-    <li>Server maintenance</li>
-    <li>High system demand</li>
-    <li>Network connectivity issues</li>
-    </ul>
-    
-    <p><b>What you can do:</b></p>
-    <ul>
-    <li>Try refreshing the page</li>
-    <li>Come back in a few minutes</li>
-    <li>Clear your browser cache and try again</li>
+    <li>Refresh the page and try again</li>
+    <li>Check that all required API keys are set in your .env file</li>
+    <li>Ensure all dependencies are installed correctly</li>
     </ul>
     </div>
     """, unsafe_allow_html=True)
     
-    if st.button("Refresh Page", type="primary"):
+    # Add a restart button
+    if st.button("Restart Application"):
         st.rerun()
-        
-    st.markdown("</div>", unsafe_allow_html=True)

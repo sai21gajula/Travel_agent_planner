@@ -1,3 +1,15 @@
+---
+title: AI Travel Planner
+emoji: ✈️
+colorFrom: blue
+colorTo: indigo
+sdk: streamlit
+sdk_version: "1.35.0"
+app_file: app.py
+pinned: false
+python_version: "3.11"
+---
+
 # Travel Agent Crew with LangChain Tools
 
 A comprehensive AI-powered travel planning system using CrewAI with Gemini and Groq LLMs, enhanced with specialized LangChain tools for weather, attractions, dining, and more.
@@ -20,22 +32,16 @@ A comprehensive AI-powered travel planning system using CrewAI with Gemini and G
 ```
 travel_agent/
 ├── .env                        # Environment variables
-├── main.py                     # Main entry point
-├── src/
+├── app.py                      # Streamlit application
+├── crew.py                     # Main crew implementation
+├── tools/
 │   ├── __init__.py
-│   ├── travel_agent/
-│   │   ├── __init__.py
-│   │   ├── crew.py             # Main crew implementation
-│   │   ├── tools/
-│   │   │   ├── __init__.py
-│   │   │   ├── browser_tools.py     # Browser tools for navigating websites
-│   │   │   ├── places_tools.py      # Google Places API tools
-│   │   │   ├── weather_tools.py     # OpenWeatherMap tools
-│   │   │   ├── yelp_tools.py        # Yelp API tools
-│   │   │   └── wikipedia_tools.py   # Wikipedia tools
-│   │   └── config/
-│   │       ├── agents.yaml     # Agent configurations
-│   │       └── tasks.yaml      # Task configurations
+│   ├── crewai_tools.py         # Tools compatibility layer
+│   ├── geoapify_tools.py       # Geoapify POI search tools
+│   ├── transport_tools.py      # Public transport search tools
+│   ├── weather_tools.py        # OpenWeatherMap tools
+│   ├── yelp_tools.py           # Yelp API tools
+│   └── wikipedia_tools.py      # Wikipedia tools
 ├── reports/                    # Generated travel reports
 └── requirements.txt            # Project dependencies
 ```
@@ -66,13 +72,15 @@ Create a `.env` file in the root directory with the following keys:
 ```
 # LLM API Keys
 GEMINI_API_KEY=your_gemini_api_key
+GEMINI_API_KEY_2=your_gemini_api_key_2
 GROQ_API_KEY_1=your_groq_api_key_1
 GROQ_API_KEY_2=your_groq_api_key_2
 SERPER_API_KEY=your_serper_api_key
 
 # LangChain Tool APIs
 OPENWEATHERMAP_API_KEY=your_openweathermap_api_key
-GOOGLE_PLACES_API_KEY=your_google_places_api_key
+GEOAPIFY_API_KEY=your_geoapify_api_key
+TRANSITLAND_API_KEY=your_transitland_api_key
 YELP_API_KEY=your_yelp_api_key
 ```
 
@@ -82,46 +90,54 @@ YELP_API_KEY=your_yelp_api_key
 - **Groq API Key**: [Groq Cloud](https://console.groq.com/keys)
 - **Serper API Key**: [Serper.dev](https://serper.dev)
 - **OpenWeatherMap API Key**: [OpenWeatherMap](https://openweathermap.org/api)
-- **Google Places API Key**: [Google Cloud Console](https://console.cloud.google.com/)
+- **Geoapify API Key**: [Geoapify](https://www.geoapify.com/)
+- **Transitland API Key**: [Transitland](https://www.transit.land/)
 - **Yelp API Key**: [Yelp Fusion](https://www.yelp.com/developers/documentation/v3/authentication)
 
 ## Usage
 
-### Interactive Mode
+### Interactive Web Interface
 
-Run the script without arguments to use interactive mode:
+Run the Streamlit application:
 
 ```bash
-python main.py
+streamlit run app.py
 ```
 
-This will prompt you for:
-- Starting point
-- Destination
-- Start date
-- End date
+This will open a web interface where you can:
+- Enter your starting point and destination
+- Set travel dates
+- Specify preferences and interests
+- Generate a comprehensive travel plan
 
-### Command Line Arguments
+### Direct Python Usage
 
-Plan a trip using command line arguments:
+You can also use the TravelAgentCrew class directly in Python:
 
-```bash
-python main.py plan --from "New York" --to "Paris" --start "2025-05-15" --end "2025-05-25"
-```
+```python
+from crew import TravelAgentCrew
 
-### Advanced Features
+# Initialize the crew
+crew = TravelAgentCrew()
 
-The system also supports CrewAI's training, testing, and replay features:
+# Define your trip details
+trip_details = {
+    'starting_point': 'New York, USA',
+    'destination': 'Paris, France',
+    'start_date': '2025-05-21',
+    'end_date': '2025-05-28',
+    'budget': 'Moderate',
+    'travelers': 2,
+    'interests': ['Historical Sites', 'Local Cuisine'],
+    'accommodation': 'Hotel',
+    'travel_style': 'Mix of Everything'
+}
 
-```bash
-# Train the crew
-python main.py train 5 training_data.json
+# Generate the travel plan
+report_path = crew.kickoff(inputs=trip_details)
 
-# Replay a specific task
-python main.py replay task_123456
-
-# Test the crew
-python main.py test 3 gemini-1.5-flash
+# The report is saved as a markdown file
+print(f"Travel plan saved to: {report_path}")
 ```
 
 ## Agents and Tools
@@ -129,22 +145,20 @@ python main.py test 3 gemini-1.5-flash
 This travel planning system uses five specialized agents, each with dedicated tools:
 
 1. **Transport Planner**
-   - FlightSearchWebTool
-   - TravelWebsiteNavigationTool
+   - PublicTransportSearchTool (Transitland API)
    - SerperDevTool (fallback)
 
 2. **Accommodation Finder**
-   - HotelSearchWebTool
-   - GooglePlacesTool
+   - GeoapifyPOITool (for hotels and accommodation)
    - SerperDevTool (fallback)
 
 3. **Local Guide**
-   - AttractionFinderTool
    - YelpRestaurantSearchTool
    - LocalFoodExperienceTool
-   - HistoricalInfoTool
-   - CulturalCustomsTool
-   - FunFactsTool
+   - GeoapifyPOITool (for attractions)
+   - HistoricalInfoTool (Wikipedia)
+   - CulturalCustomsTool (Wikipedia)
+   - FunFactsTool (Wikipedia)
    - SerperDevTool (fallback)
 
 4. **Weather and Packing Advisor**
@@ -158,20 +172,22 @@ This travel planning system uses five specialized agents, each with dedicated to
 
 ## Customization
 
-You can customize the agents and tasks by modifying the YAML configuration files in the `config` directory:
+You can customize which agents to use by passing a list to the TravelAgentCrew constructor:
 
-- `agents.yaml`: Define agent roles, goals, and backstories
-- `tasks.yaml`: Define task descriptions and expected outputs
+```python
+# Use only specific agents
+crew = TravelAgentCrew(active_agents=[
+    'transport_planner',
+    'local_guide',
+    'report_compiler'
+])
+```
 
-## Output
+## Known Issues
 
-The system generates a comprehensive travel report saved as a Markdown file in the `reports` directory. The report includes:
-
-- Transportation options and recommendations
-- Accommodation options
-- Weather forecast and clothing advice
-- Activities, attractions, and restaurants
-- Local history and cultural information
+- Transitland API may return 403 Forbidden errors for some locations
+- Rate limits on Groq API may cause failures during complex planning
+- Gemini authentication requires proper API key formatting
 
 ## Requirements
 
@@ -180,17 +196,17 @@ The system generates a comprehensive travel report saved as a Markdown file in t
 - LangChain
 - Google Gemini API key
 - Groq API key
-- Serper API key
+- Serper API key (optional)
 - OpenWeatherMap API key
-- Google Places API key
+- Geoapify API key
 - Yelp API key
 
 ## Troubleshooting
 
 - **API Key Issues**: Make sure all required API keys are correctly set in the `.env` file
 - **Module Not Found Errors**: Ensure all required packages are installed
-- **Browser Tool Errors**: Make sure Playwright is installed and properly configured
-- **LLM Errors**: Check if the models (e.g., "gemini-1.5-flash", "llama3-70b-8192") are still available in the respective APIs
+- **LLM Errors**: Check if you're hitting rate limits on your API providers
+- **Transport API Errors**: The Transitland API may not have coverage for all areas
 
 ## License
 
@@ -201,3 +217,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [CrewAI](https://www.crewai.com/) for the multi-agent framework
 - [LangChain](https://www.langchain.com/) for the tools ecosystem
 - All the API providers that make this system possible
+
+Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
