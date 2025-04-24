@@ -9,7 +9,8 @@ app_file: app.py
 pinned: false
 python_version: "3.11"
 ---
-
+link to live demo: https://huggingface.co/spaces/bharath21gaju/Ai-Travel-Planner. 
+You can access the report genrated in report and evalaution pipleine evaluation json files for each of the query. 
 # Travel Agent Crew with LangChain Tools
 
 A comprehensive AI-powered travel planning system using CrewAI with Gemini and Groq LLMs, enhanced with specialized LangChain tools for weather, attractions, dining, and more.
