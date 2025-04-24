@@ -10,6 +10,20 @@ import nest_asyncio
 from dotenv import load_dotenv
 import sys
 from typing import Optional, Dict, List, Any
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+
+# NEW – save every agent's raw .raw to disk  -----------------
+RAW_DIR = os.path.join('reports', 'raw')
+os.makedirs(RAW_DIR, exist_ok=True)
+
+def _dump_raw(agent_name: str, content: str):
+    """Write the raw output of each agent to a file for later evaluation."""
+    safe = re.sub(r'[^A-Za-z0-9_\-]', '_', agent_name)
+    path = os.path.join(RAW_DIR, f"{safe}.txt")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(content.strip())
+# ------------------------------------------------------------
 
 # Apply nest_asyncio
 nest_asyncio.apply()
@@ -93,6 +107,8 @@ groq_api_key_1 = os.getenv('GROQ_API_KEY_1')
 groq_api_key_2 = os.getenv('GROQ_API_KEY_2')
 serper_api_key = os.getenv('SERPER_API_KEY')
 yelp_api_key = os.getenv('YELP_API_KEY')
+def _safe_raw(o):
+    return getattr(o, "raw", str(o))
 
 # Configuration Loading
 def load_configs():
@@ -481,6 +497,14 @@ Research the typical weather for {destination} during your travel dates ({start_
     def aggregate_results(self, context):
         """Aggregate results and save the report."""
         try:
+            # Persist raw outputs from each task for debugging
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            os.makedirs('debug', exist_ok=True)
+            if hasattr(context, 'tasks_output'):
+                for task_output in context.tasks_output:
+                    with open(f"debug/{task_output.name}_{timestamp}.md", "w", encoding="utf-8") as f:
+                        f.write(task_output.raw)
+
             # Extract report content based on the context type
             if hasattr(context, 'tasks_output') and context.tasks_output:
                 # Reconstruct the full report from individual task outputs
@@ -571,7 +595,36 @@ Research the typical weather for {destination} during your travel dates ({start_
             with open(filename, 'w', encoding='utf-8') as file:
                 file.write(final_report_content)
 
-            # Return the path as a string
+            # Save evaluator output separately for review
+            evaluator_output = None
+            if hasattr(context, 'evaluator_output') and context.evaluator_output:
+                evaluator_output = context.evaluator_output.raw
+            if evaluator_output:
+                eval_path = os.path.join(reports_dir, f"evaluation_{safe_destination}_{timestamp}.md")
+                with open(eval_path, "w", encoding="utf-8") as f:
+                    f.write(evaluator_output)
+
+            # ------------- auto-evaluate ----------------
+            try:
+                # Ensure evaluation package is importable
+                # Add the parent directory of 'crew.py' to sys.path to find the 'evaluation' package
+                project_root = os.path.dirname(__file__)
+                if project_root not in sys.path:
+                    sys.path.insert(0, project_root)
+
+                # Import from the evaluation package
+                from evaluation.runner import evaluate_now
+                eval_json = evaluate_now(
+                    summary_path=filename,
+                    ref_dir    = RAW_DIR,                # all agent dumps
+                    meta       = self.kickoff_inputs
+                )
+                print(f"✓ Evaluation written to {eval_json}")
+            except ModuleNotFoundError as e:
+                print(f"Evaluation skipped: Could not import evaluation module - {e}")
+            except Exception as e:
+                print(f"Evaluation skipped due to an error: {e}")
+            # --------------------------------------------
             return filename
             
         except Exception as e:
@@ -826,7 +879,8 @@ Research the typical weather for {destination} during your travel dates ({start_
             expected_output = cfg['expected_output'],
             agent           = evaluator,
             # context is the compiled report task itself
-            context         = [self.compile_travel_report_task()]
+            context         = [self.compile_travel_report_task()],
+            callback        = lambda output, _t=evaluator.role: _dump_raw(_t, output.raw)
         )
 
     @task
@@ -849,7 +903,8 @@ Research the typical weather for {destination} during your travel dates ({start_
         return Task(
             description=description,
             expected_output=expected_output,
-            agent=planner
+            agent=planner,
+            callback=lambda output, _t=planner.role: _dump_raw(_t, output.raw)
         )
 
     @task
@@ -872,7 +927,8 @@ Research the typical weather for {destination} during your travel dates ({start_
         return Task(
             description=description,
             expected_output=expected_output,
-            agent=finder
+            agent=finder,
+            callback=lambda output, _t=finder.role: _dump_raw(_t, output.raw)
         )
 
     @task
@@ -895,7 +951,8 @@ Research the typical weather for {destination} during your travel dates ({start_
         return Task(
             description=description,
             expected_output=expected_output,
-            agent=guide
+            agent=guide,
+            callback=lambda output, _t=guide.role: _dump_raw(_t, output.raw)
         )
 
     @task
@@ -940,7 +997,8 @@ Additional Yelp Search Parameters:
         return Task(
             description=enhanced_description,
             expected_output=expected_output,
-            agent=expert
+            agent=expert,
+            callback=lambda output, _t=expert.role: _dump_raw(_t, output.raw)
         )
 
     @task
@@ -963,7 +1021,8 @@ Additional Yelp Search Parameters:
         return Task(
             description=description,
             expected_output=expected_output,
-            agent=advisor
+            agent=advisor,
+            callback=lambda output, _t=advisor.role: _dump_raw(_t, output.raw)
         )
 
     @task
@@ -1013,7 +1072,8 @@ Additional Yelp Search Parameters:
             agent=compiler,
             context=tasks,
             output_file="temp_report.md",
-            action=self.aggregate_results
+            action=self.aggregate_results,
+            callback=lambda output, _t=compiler.role: _dump_raw(_t, output.raw)
         )
     
     def crew(self):
