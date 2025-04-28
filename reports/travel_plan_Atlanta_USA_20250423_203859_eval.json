@@ -1,0 +1,56 @@
+{
+  "timestamp": "2025-04-24T00:39:00.291183",
+  "summary_file": "reports/travel_plan_Atlanta_USA_20250423_203859.md",
+  "references_dir": "reports/raw",
+  "auto": {
+    "rouge": {
+      "rouge1": {
+        "precision": 0.9891556932610379,
+        "recall": 0.4460356269647223,
+        "f1": 0.6148290804044295
+      },
+      "rouge2": {
+        "precision": 0.9457364341085271,
+        "recall": 0.42627533193570927,
+        "f1": 0.5876685934489403
+      },
+      "rougeL": {
+        "precision": 0.5654531371030209,
+        "recall": 0.2549772965420887,
+        "f1": 0.35146846413095817
+      }
+    },
+    "bleu": {
+      "per_reference": [
+        0.46799258760255624,
+        0.27990579465829596,
+        0.4496299078403345,
+        0.21012987036657585,
+        0.11222480512072541
+      ],
+      "average": 0.30397659311769765
+    },
+    "ragus": 0.5283744398936756
+  },
+  "meta": {
+    "starting_point": "New York, USA",
+    "destination": "Atlanta,USA",
+    "start_date": "2025-05-23",
+    "end_date": "2025-05-30",
+    "budget": "Moderate",
+    "travelers": 2,
+    "interests": [
+      "Historical Sites",
+      "Local Cuisine"
+    ],
+    "accommodation": "Any",
+    "travel_style": "Mix of Everything",
+    "special_requests": "",
+    "active_agents": [
+      "transport_planner",
+      "accommodation_finder",
+      "report_evaluator",
+      "report_compiler"
+    ]
+  }
+}

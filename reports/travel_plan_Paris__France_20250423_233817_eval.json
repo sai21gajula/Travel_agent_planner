@@ -1,0 +1,56 @@
+{
+  "timestamp": "2025-04-24T03:38:18.087708",
+  "summary_file": "reports/travel_plan_Paris__France_20250423_233817.md",
+  "references_dir": "reports/raw",
+  "auto": {
+    "rouge": {
+      "rouge1": {
+        "precision": 0.9864061172472387,
+        "recall": 0.42730953257269044,
+        "f1": 0.596302003081664
+      },
+      "rouge2": {
+        "precision": 0.939625850340136,
+        "recall": 0.4068483063328424,
+        "f1": 0.5678314491264131
+      },
+      "rougeL": {
+        "precision": 0.5488530161427357,
+        "recall": 0.23776223776223776,
+        "f1": 0.33179250128402665
+      }
+    },
+    "bleu": {
+      "per_reference": [
+        0.43417790310014975,
+        0.3503134058510964,
+        0.47778656294044686,
+        0.35989814837206696,
+        0.13497469853747562
+      ],
+      "average": 0.3514301437602471
+    },
+    "ragus": 0.5283631097785881
+  },
+  "meta": {
+    "starting_point": "New York, USA",
+    "destination": "Paris, France",
+    "start_date": "2025-05-23",
+    "end_date": "2025-05-30",
+    "budget": "Moderate",
+    "travelers": 2,
+    "interests": [
+      "Historical Sites",
+      "Local Cuisine"
+    ],
+    "accommodation": "Any",
+    "travel_style": "Mix of Everything",
+    "special_requests": "",
+    "active_agents": [
+      "transport_planner",
+      "accommodation_finder",
+      "report_evaluator",
+      "report_compiler"
+    ]
+  }
+}
